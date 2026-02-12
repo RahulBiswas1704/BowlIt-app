@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Your Exact Brand Colors */
+  --brand-orange: 255 107 0;  /* #FF6B00 */
+  --brand-green: 0 200 83;    /* #00C853 */
+  
+  /* Backgrounds */
+  --background: 255 255 255;
+  --foreground: 23 23 23;
+}
+
+body {
+  color: rgb(var(--foreground));
+  background: rgb(var(--background));
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Custom Utility Classes for your colors */
+@layer utilities {
+  .bg-primary {
+    background-color: rgb(var(--brand-orange));
+  }
+  .text-primary {
+    color: rgb(var(--brand-orange));
+  }
+  .border-primary {
+    border-color: rgb(var(--brand-orange));
+  }
+  
+  .bg-secondary {
+    background-color: rgb(var(--brand-green));
+  }
+  .text-secondary {
+    color: rgb(var(--brand-green));
+  }
+}

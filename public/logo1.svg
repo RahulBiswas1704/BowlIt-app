@@ -1,0 +1,18 @@
+<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#833ab4;stop-opacity:1"/>
+      <stop offset="50%" style="stop-color:#fd1d1d;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#fcb045;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+  <rect width="500" height="500" rx="60" fill="#fff"/>
+  <g transform="translate(140 80)">
+    <path d="M33 40v120c0 50 30 80 80 80s80-30 80-80-30-80-80-80H60" stroke="url(#a)" stroke-width="50" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="200" cy="40" r="25" fill="url(#a)"/>
+  </g>
+  <text font-family="'Varela Round', 'Arial Rounded MT Bold', 'Helvetica Rounded', sans-serif" font-weight="bold" font-size="80" text-anchor="middle" fill="#2d3047" letter-spacing="-3" transform="translate(250 420)">
+      bowlit
+    </text>
+  <path d="M-80 25Q0 55 80 25" stroke="url(#a)" stroke-width="6" stroke-linecap="round" transform="translate(250 420)"/>
+</svg>

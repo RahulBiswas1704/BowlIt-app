@@ -1,11 +1,11 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+/**
+ * MANDATORY: Replace these values with your actual Firebase Project keys.
+ * You can find these in the Firebase Console:
+ * Project Settings (Gear Icon) -> General -> Scroll down to 'Your apps'
+ */
 const firebaseConfig = {
   apiKey: "AIzaSyBze4S5JI5wIayDFOM5PTmdAEdW5mnPbbE",
   authDomain: "bowlit-app-f8b5f.firebaseapp.com",
@@ -16,6 +16,13 @@ const firebaseConfig = {
   measurementId: "G-6XLQK88835"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+// Initialize Firebase (Singleton pattern)
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const firebaseAuth = getAuth(app);
+
+// For debugging: This will log if the auth instance is ready
+if (typeof window !== "undefined") {
+  console.log("Firebase Auth initialized");
+}
+
+export { firebaseAuth };

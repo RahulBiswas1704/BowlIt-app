@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Phone, MapPin, ArrowRight, Leaf, Beef, Utensils, Lock, Loader2, RefreshCw } from "lucide-react";
@@ -15,27 +17,26 @@ import {
 
 /**
  * FIREBASE & SUPABASE SETUP
- * Consolidated here for preview stability. 
- * In your local production environment, you can move these back to 
- * ../lib/firebaseClient and ../lib/supabaseClient.
+ * NOTE: Replace the empty strings below with your actual Firebase configuration 
+ * from the Firebase Console (Project Settings > General).
  */
 
-// --- Firebase Configuration ---
 const firebaseConfig = {
-  apiKey: "", // Add your actual API key in production
+  apiKey: "", // ADD YOUR FIREBASE API KEY
   authDomain: "bowlit-app.firebaseapp.com",
   projectId: "bowlit-app",
   storageBucket: "bowlit-app.appspot.com",
-  messagingSenderId: "",
-  appId: ""
+  messagingSenderId: "", // ADD YOUR MESSAGING SENDER ID
+  appId: "" // ADD YOUR APP ID
 };
 
+// Initialize Firebase once
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const firebaseAuth = getAuth(app);
 firebaseAuth.useDeviceLanguage();
 
-// --- Supabase Mock (For Preview) ---
-// In production, use your real supabase instance from ../lib/supabaseClient
+// Mocking Supabase for the preview environment. 
+// In your local project, replace this with your existing supabase client import.
 const supabaseMock = {
   from: (table: string) => ({
     upsert: async (data: any) => {
@@ -45,7 +46,7 @@ const supabaseMock = {
   })
 };
 
-export default function SignupPage() {
+export default function App() {
   const [step, setStep] = useState<1 | 2>(1);
   const [isLoading, setIsLoading] = useState(false);
   const [diet, setDiet] = useState(""); 
@@ -55,6 +56,7 @@ export default function SignupPage() {
   
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
+  // Cleanup recaptcha on unmount
   useEffect(() => {
     return () => {
       if (recaptchaVerifierRef.current) {
@@ -105,10 +107,14 @@ export default function SignupPage() {
         recaptchaVerifierRef.current.clear();
         recaptchaVerifierRef.current = null;
       }
-      if (error.code === 'auth/invalid-phone-number') alert("The phone number is invalid.");
-      else if (error.code === 'auth/too-many-requests') alert("Too many requests. Try again later.");
-      else if (error.code === 'auth/unauthorized-domain') alert("This domain is not authorized in Firebase Console.");
-      else alert("Error: " + (error.message || "Failed to send code"));
+      
+      if (error.code === 'auth/unauthorized-domain') {
+        alert("Domain Not Authorized: Please add your Vercel URL to the 'Authorized Domains' list in the Firebase Console (Authentication > Settings).");
+      } else if (error.code === 'auth/too-many-requests') {
+        alert("Too many requests. Please try again later.");
+      } else {
+        alert("Error: " + (error.message || "Failed to send code"));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +129,7 @@ export default function SignupPage() {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
 
-      // Sync with Supabase (using mock for preview)
+      // Upsert user data to your database
       const { error: dbError } = await supabaseMock
         .from('profiles')
         .upsert({
@@ -137,12 +143,12 @@ export default function SignupPage() {
 
       if (dbError) throw dbError;
 
-      alert("Welcome to BowlIt! Account created.");
+      alert("Welcome to BowlIt! Account verified.");
       window.location.href = "/";
     } catch (error: any) {
       console.error("Verify Error:", error.code);
       if (error.code === 'auth/code-expired' || error.code === 'auth/invalid-verification-code') {
-        alert("The code has expired or is invalid. Please click 'Resend' to try again.");
+        alert("The code is invalid or has expired. Please try again.");
       } else {
         alert("Verification failed: " + error.message);
       }
@@ -153,7 +159,6 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-6 lg:px-8 font-sans">
-      {/* Hidden container for Firebase Recaptcha */}
       <div id="recaptcha-container"></div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-10">
@@ -186,7 +191,7 @@ export default function SignupPage() {
                   <label className="block text-sm font-bold text-gray-700 mb-1">Office Building</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><MapPin className="h-5 w-5 text-gray-400" /></div>
-                    <select name="office" required className="block w-full pl-10 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 bg-white transition-all" onChange={handleChange} value={formData.office}>
+                    <select name="office" required className="block w-full pl-10 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 bg-white transition-all outline-none" onChange={handleChange} value={formData.office}>
                       <option value="">Select your hub...</option>
                       <option value="DLF 1">DLF 1 (Newtown)</option>
                       <option value="Ecospace">Ecospace Business Park</option>

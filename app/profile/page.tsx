@@ -30,7 +30,6 @@ export default function ProfilePage() {
     fullName: "",
     phone: "",
     email: "",
-    office: "",
     diet: "",
     gender: "",
     dob: "",
@@ -55,7 +54,6 @@ export default function ProfilePage() {
         fullName: meta.full_name || "",
         phone: meta.phone || "",
         email: user.email || "",
-        office: meta.office || "",
         diet: meta.diet || "Veg",
         gender: meta.gender || "",
         dob: meta.dob || "",
@@ -127,7 +125,6 @@ export default function ProfilePage() {
     setSaving(true);
     const { error } = await supabase.auth.updateUser({
       data: {
-        office: formData.office,
         diet: formData.diet,
         gender: formData.gender,
         dob: formData.dob,

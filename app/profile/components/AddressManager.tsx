@@ -29,6 +29,20 @@ function isPointInPolygon(point: { lat: number, lng: number }, polygon: { lat: n
     return inside;
 }
 
+// Helper to get center of polygon
+function getPolygonCenter(polygon: { lat: number, lng: number }[]) {
+    if (!polygon || polygon.length === 0) return DEFAULT_CENTER;
+    let minLat = polygon[0].lat, maxLat = polygon[0].lat;
+    let minLng = polygon[0].lng, maxLng = polygon[0].lng;
+    for (const p of polygon) {
+        if (p.lat < minLat) minLat = p.lat;
+        if (p.lat > maxLat) maxLat = p.lat;
+        if (p.lng < minLng) minLng = p.lng;
+        if (p.lng > maxLng) maxLng = p.lng;
+    }
+    return { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
+}
+
 // KOLKATA DEFAULT COORDINATES
 const DEFAULT_CENTER = { lat: 22.5726, lng: 88.3639 };
 
@@ -118,18 +132,44 @@ export function AddressManager({ userId }: { userId: string }) {
         { ssr: false }
     );
 
-    const handleMapClick = (e: any) => {
-        setFormData({
-            ...formData,
-            latitude: e.latlng.lat,
-            longitude: e.latlng.lng
-        });
+    const handleMapClick = async (e: any) => {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+
+        setFormData(prev => ({
+            ...prev,
+            latitude: lat,
+            longitude: lng
+        }));
+
+        // Reverse Geocoding to Auto-fill Address
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+            const data = await res.json();
+            if (data && data.display_name) {
+                const address = data.address || {};
+                const building = address.building || address.amenity || address.shop || address.office || address.residential || "";
+                const street = address.road || address.neighbourhood || address.suburb || "";
+
+                let displayName = building ? `${building}, ${street}` : street || data.display_name.split(',').slice(0, 2).join(', ');
+                displayName = displayName.replace(/(^[,\s]+)|([,\s]+$)/g, ''); // Trim commas
+
+                setFormData(prev => ({
+                    ...prev,
+                    building_name: displayName
+                }));
+            }
+        } catch (err) {
+            console.error("Geocoding failed", err);
+        }
     };
 
-    const position = {
-        lat: formData.latitude || DEFAULT_CENTER.lat,
-        lng: formData.longitude || DEFAULT_CENTER.lng
-    };
+    const position = useMemo(() => {
+        if (formData.latitude && formData.longitude) {
+            return { lat: formData.latitude, lng: formData.longitude };
+        }
+        return getPolygonCenter(geofencePolygon);
+    }, [formData.latitude, formData.longitude, geofencePolygon]);
 
     const isInsideGeofence = useMemo(() => {
         if (!formData.latitude || !formData.longitude) return true; // Ignore if pin not dropped

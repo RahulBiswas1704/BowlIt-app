@@ -8,7 +8,6 @@ type PersonalDetailsFormProps = {
         fullName: string;
         phone: string;
         email: string;
-        office: string;
         diet: string;
         gender: string;
         dob: string;
@@ -39,16 +38,7 @@ export function PersonalDetailsForm({ formData, setFormData, handleUpdateProfile
                 </div>
                 {/* Editable Fields */}
                 <div className="grid md:grid-cols-2 gap-4 md:gap-6 pt-4 border-t">
-                    <div>
-                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Office Location</label>
-                        <select value={formData.office} onChange={(e) => setFormData({ ...formData, office: e.target.value })} className="w-full p-3 text-sm md:text-base border rounded-xl font-bold text-gray-900 bg-white">
-                            <option value="DLF 1">DLF 1 (Newtown)</option>
-                            <option value="Ecospace">Ecospace Business Park</option>
-                            <option value="Candor">Candor TechSpace</option>
-                            <option value="TMC">Tata Medical Center</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
+
                     <div>
                         <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Diet</label>
                         <select value={formData.diet} onChange={(e) => setFormData({ ...formData, diet: e.target.value })} className="w-full p-3 text-sm md:text-base border rounded-xl font-bold text-gray-900 bg-white">

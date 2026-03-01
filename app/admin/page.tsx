@@ -76,7 +76,7 @@ function AdminLogin({ onLoginSuccess }: { onLoginSuccess: () => void }) {
 
 // --- DASHBOARD ---
 function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'logistics' | 'orders' | 'customers' | 'menu' | 'fleet' | 'zones' | 'plans' | 'weekly'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'logistics' | 'orders' | 'customers' | 'menu' | 'fleet' | 'zones' | 'plans' | 'weekly'>('overview');
   const [loading, setLoading] = useState(false);
 
   // Data State
@@ -173,6 +173,49 @@ function AdminDashboard() {
       chartData: Object.entries(last7DaysMap).map(([date, total]) => ({ date, total: total as number }))
     };
   }, [orders, riders]);
+
+  const revenueStats = useMemo(() => {
+    const completedOrders = orders.filter(o => o.status === 'Completed');
+    const totalSales = completedOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+    const totalLiabilities = customers.reduce((sum, c) => sum + (c.balance || 0), 0);
+    const totalMoneyCollected = totalSales + totalLiabilities;
+
+    // 30 Days chart
+    const last30DaysMap = Array.from({ length: 30 }).reverse().reduce((acc: any, _, i) => {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      acc[d.toISOString().split('T')[0]] = 0; return acc;
+    }, {});
+
+    completedOrders.forEach(o => {
+      const dateStr = o.created_at.split('T')[0];
+      if (last30DaysMap[dateStr] !== undefined) {
+        last30DaysMap[dateStr] += (o.total_amount || 0);
+      }
+    });
+
+    // Top Items
+    const itemCounts: Record<string, { count: number, revenue: number, image?: string }> = {};
+    completedOrders.forEach(o => {
+      o.items?.forEach(item => {
+        if (!itemCounts[item.name]) itemCounts[item.name] = { count: 0, revenue: 0, image: item.image };
+        itemCounts[item.name].count += (item.quantity || 1);
+        itemCounts[item.name].revenue += (item.price * (item.quantity || 1));
+      });
+    });
+
+    const topItems = Object.entries(itemCounts)
+      .sort((a, b) => b[1].revenue - a[1].revenue)
+      .slice(0, 10)
+      .map(([name, data]) => ({ name, ...data }));
+
+    return {
+      totalSales,
+      totalLiabilities,
+      totalMoneyCollected,
+      chartData: Object.entries(last30DaysMap).map(([date, total]) => ({ date, total: total as number })),
+      topItems
+    };
+  }, [orders, customers]);
 
   // --- ACTIONS ---
   const handleAddItem = async () => {
@@ -296,6 +339,7 @@ function AdminDashboard() {
         <div className="flex items-center gap-2 mb-10 text-orange-500 font-bold text-2xl"><ChefHat /> Admin</div>
         <nav className="space-y-2 flex-1">
           <SidebarItem icon={<LayoutDashboard size={20} />} label="Overview" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
+          <SidebarItem icon={<TrendingUp size={20} />} label="Revenue" active={activeTab === 'revenue'} onClick={() => setActiveTab('revenue')} />
           <SidebarItem icon={<MapPin size={20} />} label="Logistics Map" active={activeTab === 'logistics'} onClick={() => setActiveTab('logistics')} />
           <SidebarItem icon={<ShoppingBag size={20} />} label="Live Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
           <SidebarItem icon={<Bike size={20} />} label="Fleet Manager" active={activeTab === 'fleet'} onClick={() => setActiveTab('fleet')} />
@@ -361,6 +405,85 @@ function AdminDashboard() {
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* REVENUE DASHBOARD */}
+            {activeTab === 'revenue' && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* FINANCIAL KPIs */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <StatCard title="Total Paid via Wallet (All-Time Sales)" value={formatMoney(revenueStats.totalSales)} icon={<IndianRupee size={24} className="text-white" />} colorClass="bg-gradient-to-br from-green-600 to-green-700" />
+                  <StatCard title="Outstanding Wallet Liabilities" value={formatMoney(revenueStats.totalLiabilities)} icon={<CreditCard size={24} className="text-white" />} colorClass="bg-gradient-to-br from-red-500 to-red-600" />
+                  <StatCard title="Total Money Collected" value={formatMoney(revenueStats.totalMoneyCollected)} icon={<IndianRupee size={24} className="text-white" />} colorClass="bg-gradient-to-br from-black to-gray-800" />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* 30-DAY REVENUE CHART */}
+                  <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-2 mb-6 text-gray-800 font-bold text-lg border-b pb-4">
+                      <TrendingUp size={20} className="text-orange-500" /> 30-Day Revenue Trend
+                    </div>
+                    <div className="h-64 flex items-end gap-1 md:gap-2 overflow-x-auto pb-6 scrollbar-thin">
+                      {revenueStats.chartData.map((data, i) => {
+                        const maxVal = Math.max(...revenueStats.chartData.map(d => d.total), 1);
+                        const heightPercent = (data.total / maxVal) * 100;
+                        return (
+                          <div key={i} className="flex-1 flex flex-col items-center gap-2 group min-w-[20px]">
+                            <div className="relative w-full flex justify-center h-[200px] items-end">
+                              {/* Hover Tooltip */}
+                              <div className="absolute -top-10 bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 font-bold pointer-events-none">
+                                {formatMoney(data.total)}<br />{data.date}
+                              </div>
+                              {/* Bar */}
+                              <div
+                                className="w-full max-w-[30px] bg-green-100 group-hover:bg-green-300 transition-all rounded-t-sm relative overflow-hidden"
+                                style={{ height: `${heightPercent}%`, minHeight: '4px' }}
+                              >
+                                <div className="absolute bottom-0 w-full h-1/2 bg-gradient-to-t from-green-500 to-transparent opacity-20"></div>
+                              </div>
+                            </div>
+                            {/* Show date labels only for every 5th day to avoid crowding */}
+                            <span className="text-[8px] font-bold text-gray-400 mt-1 whitespace-nowrap">
+                              {i % 5 === 0 ? data.date.split('-').slice(1).join('/') : ''}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* TOP SELLING ITEMS (LEADERBOARD) */}
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                    <div className="flex items-center gap-2 mb-4 text-gray-800 font-bold text-lg border-b pb-4 shrink-0">
+                      <Utensils size={20} className="text-orange-500" /> Top Selling Items
+                    </div>
+                    <div className="overflow-y-auto pr-2 space-y-3 flex-1 pb-4">
+                      {revenueStats.topItems.map((item, idx) => (
+                        <div key={item.name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-orange-200 transition-colors">
+                          <div className="font-black text-gray-300 text-xl w-6 text-center">{idx + 1}</div>
+                          <div className="w-10 h-10 rounded-lg bg-white overflow-hidden shrink-0 border">
+                            {item.image ? (
+                              <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-200"><Utensils size={14} /></div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-sm text-gray-900 truncate">{item.name}</h4>
+                            <p className="text-xs text-gray-500">{item.count} items sold</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-black text-green-600 text-sm">₹{item.revenue}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {revenueStats.topItems.length === 0 && (
+                        <div className="text-center p-6 text-sm text-gray-400 font-bold">No sales data yet.</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

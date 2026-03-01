@@ -8,7 +8,7 @@ import { getAuth } from "firebase/auth";
  */
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyBze4S5JI5wIayDFOM5PTmdAEdW5mnPbbE",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: "bowlit-app-f8b5f.firebaseapp.com",
   projectId: "bowlit-app-f8b5f",
   storageBucket: "bowlit-app-f8b5f.firebasestorage.app",

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import LoginModal from "./LoginModal";
 import CartDrawer from "./CartDrawer";
-import CompleteProfileModal from "./CompleteProfileModal";
+import PhonePromptModal from "./PhonePromptModal";
 import ProfileSetupModal from "./ProfileSetupModal";
 import { useCart } from "../context/CartContext";
 
@@ -177,10 +177,8 @@ export default function Navbar() {
       <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
 
-      <CompleteProfileModal
-        isOpen={isPhoneModalOpen}
-        onClose={() => setIsPhoneModalOpen(false)}
-      />
+      {isPhoneModalOpen && <PhonePromptModal />}
+
       <ProfileSetupModal
         isOpen={isProfileSetupOpen}
         onClose={() => setIsProfileSetupOpen(false)}

@@ -93,6 +93,7 @@ function AdminDashboard() {
   const [isAddingDish, setIsAddingDish] = useState(false);
   const [isAddingRider, setIsAddingRider] = useState(false);
   const [topUpModal, setTopUpModal] = useState<{ isOpen: boolean, customerId: string, amount: string }>({ isOpen: false, customerId: "", amount: "" }); // NEW
+  const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, id: string, full_name: string, phone: string, office: string, new_balance: string }>({ isOpen: false, id: "", full_name: "", phone: "", office: "", new_balance: "" });
 
   const [newItem, setNewItem] = useState({ name: "", price: "", type: "Veg", description: "", image: "" });
   const [newRider, setNewRider] = useState({ name: "", phone: "", password: "" });
@@ -113,34 +114,16 @@ function AdminDashboard() {
     // FETCH WEEKLY MENU (Includes new columns automatically if they exist in DB)
     const { data: w } = await supabase.from('weekly_menu').select('*');
 
-    // FETCH CUSTOMERS (Auth users joined with Wallets)
-    // Supabase JS doesn't easily join auth.users, so we fetch wallets and profiles
-    const { data: walletsData } = await supabase.from('wallets').select('*');
-    // Using an RPC call or admin auth to list users would be better, but we can simulate it with existing data for now
-    // As a workaround since auth.users isn't directly queryable via select('*'):
-    // We will extract unique customers from the `orders` table as our "Customer Directory"
-    const uniqueCustomersMap = new Map();
-    if (o) {
-      o.forEach((order: any) => {
-        if (!uniqueCustomersMap.has(order.customer_phone)) {
-          uniqueCustomersMap.set(order.customer_phone, {
-            id: order.user_id || 'unknown', // Need to ensure user_id is in orders in production
-            phone: order.customer_phone,
-            full_name: order.customer_name,
-            email: "N/A", // Not stored in orders
-            office: order.address,
-            diet: "Unknown",
-            balance: 0 // Will map below
-          });
-        }
-      });
+    // FETCH CUSTOMERS using the new Admin API
+    try {
+      const res = await fetch('/api/admin/users');
+      const result = await res.json();
+      if (result.customers) {
+        setCustomers(result.customers);
+      }
+    } catch (e) {
+      console.error("Failed to fetch customers", e);
     }
-
-    // Map wallet balances directly if we have proper user_ids
-    const mappedCustomers = Array.from(uniqueCustomersMap.values()).map(c => {
-      const userWallet = walletsData?.find(w => w.user_id === c.id);
-      return { ...c, balance: userWallet?.balance || 0 };
-    });
 
     const sorter: { [key: string]: number } = { "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6, "Sun": 7 };
     if (w) w.sort((a, b) => sorter[a.day_of_week] - sorter[b.day_of_week]);
@@ -150,7 +133,6 @@ function AdminDashboard() {
     if (r) setRiders(r);
     if (p) setPlans(p);
     if (w) setWeeklyMenu(w);
-    setCustomers(mappedCustomers);
   };
 
   const stats = useMemo(() => {
@@ -213,6 +195,40 @@ function AdminDashboard() {
       fetchData();
     } else {
       alert("Wallet not found for this user. Ensure user_id is properly synced in orders table.");
+    }
+  };
+
+  const handleEditUser = async () => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editUserModal)
+      });
+      if (res.ok) {
+        setEditUserModal({ ...editUserModal, isOpen: false });
+        fetchData();
+      } else {
+        const data = await res.json();
+        alert("Error updating user: " + data.error);
+      }
+    } catch (e) {
+      alert("Error updating user");
+    }
+  };
+
+  const handleDeleteUser = async (id: string, name: string) => {
+    if (!confirm(`Are you absolutely sure you want to permanently delete user ${name}? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/admin/users?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchData();
+      } else {
+        const data = await res.json();
+        alert("Error deleting user: " + data.error);
+      }
+    } catch (e) {
+      alert("Error deleting user");
     }
   };
 
@@ -399,11 +415,19 @@ function AdminDashboard() {
                             </button>
 
                             <button
-                              onClick={() => setTopUpModal({ isOpen: true, customerId: c.id, amount: "" })}
+                              onClick={() => setEditUserModal({ isOpen: true, id: c.id, full_name: c.full_name, phone: c.phone || "", office: c.office || "", new_balance: c.balance.toString() })}
                               className="bg-gray-100 hover:bg-black hover:text-white transition-colors text-gray-700 p-1.5 rounded-lg border flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
-                              title="Add funds to wallet"
+                              title="Edit User Profile"
                             >
-                              <Plus size={14} /> Add Funds
+                              <Edit3 size={14} /> Edit
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteUser(c.id, c.full_name)}
+                              className="bg-red-50 text-red-600 hover:bg-red-100 transition-colors p-1.5 rounded-lg flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
+                              title="Delete User"
+                            >
+                              <Trash2 size={14} /> Delete
                             </button>
                           </div>
                         </td>
@@ -549,6 +573,28 @@ function AdminDashboard() {
                 </div>
                 <button onClick={handleTopUp} disabled={!topUpModal.amount} className="w-full bg-green-600 text-white p-4 rounded-xl font-bold text-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-green-200 mt-4">
                   Proceed to Add Funds
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT USER MODAL */}
+        {editUserModal.isOpen && (
+          <div className="fixed inset-0 bg-black/50 flex flex-col items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <div className="bg-white p-8 rounded-3xl w-full max-w-sm shadow-2xl relative">
+              <button onClick={() => setEditUserModal({ ...editUserModal, isOpen: false })} className="absolute top-4 right-4 text-gray-400 hover:text-black transition-colors"><XCircle size={24} /></button>
+              <h3 className="text-xl font-bold mb-4">Edit Customer</h3>
+              <div className="space-y-3">
+                <input className="w-full border p-3 rounded-xl" placeholder="Full Name" value={editUserModal.full_name} onChange={e => setEditUserModal({ ...editUserModal, full_name: e.target.value })} />
+                <input className="w-full border p-3 rounded-xl" placeholder="Phone" value={editUserModal.phone} onChange={e => setEditUserModal({ ...editUserModal, phone: e.target.value })} />
+                <input className="w-full border p-3 rounded-xl" placeholder="Office / Address" value={editUserModal.office} onChange={e => setEditUserModal({ ...editUserModal, office: e.target.value })} />
+                <div className="relative">
+                  <span className="absolute left-3 top-3.5 text-gray-400 font-bold">₹</span>
+                  <input className="w-full border p-3 pl-8 rounded-xl" type="number" placeholder="Wallet Balance" value={editUserModal.new_balance} onChange={e => setEditUserModal({ ...editUserModal, new_balance: e.target.value })} />
+                </div>
+                <button onClick={handleEditUser} className="w-full bg-black text-white p-3 rounded-xl font-bold flex items-center justify-center gap-2">
+                  <Save size={18} /> Save Changes
                 </button>
               </div>
             </div>

@@ -294,12 +294,7 @@ export default function ProfilePage() {
         </motion.div>
 
         {/* 3. SMART DELIVERY MAP */}
-        <AddressManager
-          formData={formData}
-          setFormData={setFormData}
-          handleUpdateProfile={handleUpdateProfile}
-          saving={saving}
-        />
+        <AddressManager userId={userId} />
 
         {/* 4. PERSONAL DETAILS */}
         <PersonalDetailsForm

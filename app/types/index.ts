@@ -59,3 +59,14 @@ export type WeeklyMenu = {
     non_veg_dish: string;   // Hero for Non-Veg Plan (Chicken)
     week_number: number;    // 1 or 2
 };
+
+export type SavedAddress = {
+    id: string;
+    tag: string; // "Home", "Work", "Other"
+    building_name: string;
+    office: string; // Floor / Unit
+    delivery_instructions: string;
+    latitude: number;
+    longitude: number;
+    is_default: boolean;
+};

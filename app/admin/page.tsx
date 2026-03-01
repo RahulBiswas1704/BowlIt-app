@@ -4,7 +4,7 @@ import {
   ChefHat, Plus, Trash2, Loader2, LogOut,
   ShoppingBag, Utensils, Clock,
   LayoutDashboard, CreditCard, Bike, UserPlus, XCircle, MapPin,
-  Calendar, Edit3, Save, Users, TrendingUp, IndianRupee, Bell
+  Calendar, Edit3, Save, Users, TrendingUp, IndianRupee, Bell, Settings
 } from "lucide-react";
 
 import { supabaseAdmin as supabase } from "../lib/supabaseAdminClient";
@@ -20,6 +20,7 @@ import { StatCard } from "./components/StatCard";
 import { PlanCard } from "./components/PlanCard";
 import { WeeklyMenuRow } from "./components/WeeklyMenuRow";
 import { LogisticsMap } from "./components/LogisticsMap";
+import { GeofenceMap } from "./components/GeofenceMap";
 
 export default function AdminPanel() {
   const [session, setSession] = useState<Session | null>(null);
@@ -75,7 +76,7 @@ function AdminLogin({ onLoginSuccess }: { onLoginSuccess: () => void }) {
 
 // --- DASHBOARD ---
 function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'logistics' | 'orders' | 'customers' | 'menu' | 'fleet' | 'plans' | 'weekly'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'logistics' | 'orders' | 'customers' | 'menu' | 'fleet' | 'zones' | 'plans' | 'weekly'>('overview');
   const [loading, setLoading] = useState(false);
 
   // Data State
@@ -85,6 +86,10 @@ function AdminDashboard() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [weeklyMenu, setWeeklyMenu] = useState<WeeklyMenu[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]); // NEW
+
+  // NEW: Store Settings State (Delivery Zones)
+  const [storeSettings, setStoreSettings] = useState<{ geofence_polygon: { lat: number, lng: number }[] }>({ geofence_polygon: [] });
+  const [savingSettings, setSavingSettings] = useState(false);
 
   // NEW: State for Cycle Selection (1 or 2)
   const [selectedCycle, setSelectedCycle] = useState<1 | 2>(1);
@@ -123,6 +128,17 @@ function AdminDashboard() {
       }
     } catch (e) {
       console.error("Failed to fetch customers", e);
+    }
+
+    // FETCH STORE SETTINGS (Radius)
+    try {
+      const res = await fetch('/api/admin/settings');
+      const result = await res.json();
+      if (result.settings) {
+        setStoreSettings(result.settings);
+      }
+    } catch (e) {
+      console.error("Failed to fetch settings", e);
     }
 
     const sorter: { [key: string]: number } = { "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6, "Sun": 7 };
@@ -254,6 +270,25 @@ function AdminDashboard() {
     }
   };
 
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(storeSettings)
+      });
+      if (res.ok) alert("Delivery Zones Saved Successfully!");
+      else {
+        const data = await res.json();
+        alert("Error saving settings: " + data.error);
+      }
+    } catch (e) {
+      alert("Server Error while saving settings");
+    }
+    setSavingSettings(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* SIDEBAR */}
@@ -265,6 +300,7 @@ function AdminDashboard() {
           <SidebarItem icon={<ShoppingBag size={20} />} label="Live Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
           <SidebarItem icon={<Bike size={20} />} label="Fleet Manager" active={activeTab === 'fleet'} onClick={() => setActiveTab('fleet')} />
           <SidebarItem icon={<Users size={20} />} label="Customers" active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} />
+          <SidebarItem icon={<Settings size={20} />} label="Delivery Zones" active={activeTab === 'zones'} onClick={() => setActiveTab('zones')} />
           <div className="pt-4 pb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Content Management</div>
           <SidebarItem icon={<Utensils size={20} />} label="Add-ons Menu" active={activeTab === 'menu'} onClick={() => setActiveTab('menu')} />
           <SidebarItem icon={<CreditCard size={20} />} label="Sub. Plans" active={activeTab === 'plans'} onClick={() => setActiveTab('plans')} />
@@ -438,6 +474,18 @@ function AdminDashboard() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* DELIVERY ZONES / SETTINGS */}
+            {activeTab === 'zones' && (
+              <div className="flex justify-center w-full">
+                <GeofenceMap
+                  polygon={storeSettings.geofence_polygon}
+                  setPolygon={(poly) => setStoreSettings({ ...storeSettings, geofence_polygon: poly })}
+                  onSave={handleSaveSettings}
+                  saving={savingSettings}
+                />
               </div>
             )}
 

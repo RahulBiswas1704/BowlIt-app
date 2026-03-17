@@ -121,3 +121,52 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
+/**
+ * POST: Manually create a user account by the Admin
+ */
+export async function POST(request: Request) {
+    try {
+        const body = await request.json();
+        const { full_name, phone, office, initial_balance } = body;
+
+        if (!full_name || !phone) return NextResponse.json({ error: "Name and Phone required" }, { status: 400 });
+
+        // Generate a dummy email and password since Auth requires email/password or phone OTP
+        // but admin bypass allows direct creation. Phone number is the primary key for BowlIt.
+        // If phone auth isn't strict, we can just supply the phone.
+        const dummyEmail = `user_${Date.now()}@bowlit.manual`;
+        const tempPassword = `BowlIt@${Math.floor(1000 + Math.random() * 9000)}`;
+
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+            email: dummyEmail,
+            phone: phone,
+            password: tempPassword,
+            email_confirm: true,
+            phone_confirm: true,
+            user_metadata: {
+                full_name,
+                phone,
+                office,
+                added_by_admin: true
+            }
+        });
+
+        if (createError) throw createError;
+
+        // Create Wallet
+        const { error: walletError } = await supabaseAdmin
+            .from('wallets')
+            .insert([{ 
+                user_id: newUser.user.id, 
+                balance: parseFloat(initial_balance) || 0 
+            }]);
+
+        if (walletError) throw walletError;
+
+        return NextResponse.json({ success: true, user: newUser.user });
+    } catch (error: any) {
+        console.error("Admin API POST Error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}

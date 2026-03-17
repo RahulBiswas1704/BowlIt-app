@@ -4,7 +4,7 @@ import { Bike, Phone, MapPin, CheckCircle, LogOut, Loader2, Package, RefreshCw, 
 import { supabase } from "../lib/supabaseClient";
 
 // --- TYPES ---
-type Rider = { id: number; name: string; phone: string; };
+type Rider = { id: number; name: string; phone: string; status?: string; lat?: number; lng?: number; };
 type Order = { id: number; user_id: string; customer_name: string; customer_phone: string; address: string; total_amount: number; status: string; items: any[]; created_at: string; customer_latitude?: number; customer_longitude?: number; building_name?: string; delivery_instructions?: string; };
 
 export default function RiderPanel() {
@@ -26,6 +26,8 @@ export default function RiderPanel() {
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [trackingActive, setTrackingActive] = useState(false); // NEW: Realtime Tracking
+
 
   // --- INITIALIZATION ---
   useEffect(() => {
@@ -39,9 +41,49 @@ export default function RiderPanel() {
     }
   }, []);
 
+  // --- GPS LIVE TRACKING ---
+  useEffect(() => {
+    let watchId: number;
+
+    if (rider && rider.status === 'Online') {
+      if ('geolocation' in navigator) {
+        setTrackingActive(true);
+        watchId = navigator.geolocation.watchPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            // Push to Supabase
+            await supabase.from('riders').update({
+              lat: latitude,
+              lng: longitude,
+              last_location_update: new Date().toISOString()
+            }).eq('phone', rider.phone);
+          },
+          (error) => {
+            console.error("GPS Tracking Error:", error);
+            setTrackingActive(false);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+        );
+      } else {
+        console.warn("Geolocation not supported by this browser.");
+      }
+    } else {
+      setTrackingActive(false);
+      // Wait to clear location if going offline
+      if (rider && rider.status === 'Offline') {
+         supabase.from('riders').update({ lat: null, lng: null }).eq('phone', rider.phone);
+      }
+    }
+
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [rider?.status, rider?.phone]);
+
   // --- ACTIONS ---
   const updateRiderStatus = async (riderPhone: string, status: 'Online' | 'Offline') => {
     await supabase.from('riders').update({ status }).eq('phone', riderPhone);
+    setRider(prev => prev ? { ...prev, status } : prev); // Update local state to trigger tracker
   };
 
   const setupRealtime = (riderPhone: string) => {
@@ -112,8 +154,8 @@ export default function RiderPanel() {
 
     if (error || !data) { alert("Invalid Credentials"); setLoading(false); return; }
 
-    localStorage.setItem("rider_session", JSON.stringify(data));
-    setRider(data);
+    localStorage.setItem("rider_session", JSON.stringify({ ...data, status: 'Online' }));
+    setRider({ ...data, status: 'Online' });
     updateRiderStatus(data.phone, 'Online');
     refreshAllData(data.phone);
     setupRealtime(data.phone);
@@ -190,8 +232,10 @@ export default function RiderPanel() {
           <div>
             <h1 className="font-bold text-2xl">{rider.name}</h1>
             <div className="flex items-center gap-2 mt-1">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              <p className="text-sm text-green-400 font-mono">Online</p>
+              <span className={`w-2 h-2 rounded-full ${rider.status === 'Online' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+              <p className={`text-sm font-mono ${rider.status === 'Online' ? 'text-green-400' : 'text-red-400'}`}>
+                {rider.status} {trackingActive && "(Live GPS)"}
+              </p>
             </div>
           </div>
           <button onClick={handleLogout} className="p-3 bg-gray-800 rounded-xl hover:bg-red-900 transition-colors"><LogOut size={20} /></button>

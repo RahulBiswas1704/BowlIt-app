@@ -16,12 +16,14 @@ export function SidebarItem({
     return (
         <button
             onClick={onClick}
-            className={`w-full text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 transition ${active
+            className={`w-full text-left px-5 py-3.5 rounded-xl font-bold flex items-center justify-between transition ${active
                     ? 'bg-orange-600 text-white shadow-lg shadow-orange-900/50'
                     : 'text-gray-400 hover:bg-gray-800 hover:text-gray-100'
                 }`}
         >
-            {icon} {label}
+            <div className="flex items-center gap-4">
+                {icon} <span className="text-[15px]">{label}</span>
+            </div>
         </button>
     );
 }

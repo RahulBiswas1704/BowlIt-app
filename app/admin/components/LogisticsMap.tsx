@@ -11,11 +11,12 @@ const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContai
 const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
 const Marker = dynamic(() => import('react-leaflet').then(m => m.Marker), { ssr: false });
 const Popup = dynamic(() => import('react-leaflet').then(m => m.Popup), { ssr: false });
+const Polygon = dynamic(() => import('react-leaflet').then(m => m.Polygon), { ssr: false });
 
 // KOLKATA DEFAULT CENTER
 const DEFAULT_CENTER = { lat: 22.5726, lng: 88.3639 };
 
-export function LogisticsMap({ orders }: { orders: Order[] }) {
+export function LogisticsMap({ orders, deliveryZone = [] }: { orders: Order[], deliveryZone?: { lat: number, lng: number }[] }) {
     const [isClient, setIsClient] = useState(false);
     const [waitlistCoords, setWaitlistCoords] = useState<{ latitude: number, longitude: number, created_at: string }[]>([]);
     const [showHeatmap, setShowHeatmap] = useState(false);
@@ -101,6 +102,15 @@ export function LogisticsMap({ orders }: { orders: Order[] }) {
                 <MapContainer center={[DEFAULT_CENTER.lat, DEFAULT_CENTER.lng]} zoom={12} scrollWheelZoom={true} style={{ height: "100%", width: "100%" }}>
                     {/* @ts-ignore */}
                     <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+
+                    {/* RENDER SERVICEABLE DELIVERY ZONE */}
+                    {deliveryZone && deliveryZone.length > 2 && (
+                         /* @ts-ignore */
+                        <Polygon 
+                            positions={deliveryZone.map(p => [p.lat, p.lng] as [number, number])} 
+                            pathOptions={{ color: '#ea580c', fillColor: '#ea580c', fillOpacity: 0.1, weight: 3, dashArray: '5, 10' }}
+                        />
+                    )}
 
                     {/* RENDER ACTIVE LIVE ORDERS */}
                     {mappedOrders.map((order) => (

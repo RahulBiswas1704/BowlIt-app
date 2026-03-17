@@ -5,7 +5,7 @@ import {
   ChefHat, Plus, Trash2, Loader2, LogOut,
   ShoppingBag, Utensils, Clock,
   LayoutDashboard, CreditCard, Bike, UserPlus, XCircle, MapPin,
-  Calendar, Edit3, Save, Users, TrendingUp, IndianRupee, Bell, Settings, Megaphone, Send, CalendarClock, Star
+  Calendar, Edit3, Save, Users, TrendingUp, IndianRupee, Bell, Settings, Megaphone, Send, CalendarClock, Star, Gift
 } from "lucide-react";
 
 import { supabaseAdmin as supabase } from "../lib/supabaseAdminClient";
@@ -22,6 +22,7 @@ import { PlanCard } from "./components/PlanCard";
 import { WeeklyMenuRow } from "./components/WeeklyMenuRow";
 import { LogisticsMap } from "./components/LogisticsMap";
 import { GeofenceMap } from "./components/GeofenceMap";
+import { SidebarAccordion } from "./components/SidebarAccordion";
 
 export default function AdminPanel() {
   const [session, setSession] = useState<Session | null>(null);
@@ -100,6 +101,13 @@ function AdminDashboard() {
   // Modals
   const [isAddingDish, setIsAddingDish] = useState(false);
   const [isAddingRider, setIsAddingRider] = useState(false);
+  const [isAddingPlan, setIsAddingPlan] = useState(false);
+  const [isAddingUser, setIsAddingUser] = useState(false); // NEW
+  
+  const [editDishModal, setEditDishModal] = useState<{ isOpen: boolean, id: number, name: string, price: string, type: string, description: string, image: string }>({ isOpen: false, id: 0, name: "", price: "", type: "Veg", description: "", image: "" });
+  const [editRiderModal, setEditRiderModal] = useState<{ isOpen: boolean, phone: string, name: string, status: string }>({ isOpen: false, phone: "", name: "", status: "Active" });
+  const [editOrderModal, setEditOrderModal] = useState<{ isOpen: boolean, id: number, address: string, building_name: string, delivery_instructions: string, customer_phone: string }>({ isOpen: false, id: 0, address: "", building_name: "", delivery_instructions: "", customer_phone: "" });
+  
   const [topUpModal, setTopUpModal] = useState<{ isOpen: boolean, customerId: string, amount: string }>({ isOpen: false, customerId: "", amount: "" }); // NEW
   const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, id: string, full_name: string, phone: string, office: string, new_balance: string }>({ isOpen: false, id: "", full_name: "", phone: "", office: "", new_balance: "" });
 
@@ -110,6 +118,8 @@ function AdminDashboard() {
 
   const [newItem, setNewItem] = useState({ name: "", price: "", type: "Veg", description: "", image: "" });
   const [newRider, setNewRider] = useState({ name: "", phone: "", password: "" });
+  const [newPlan, setNewPlan] = useState({ id: "", name: "", base_price: "", type: "both", description: "", features: ["Included Delivery", "Pause Anytime"] });
+  const [newUser, setNewUser] = useState({ full_name: "", phone: "", office: "", initial_balance: "0" }); // NEW
   const [selectedRiders, setSelectedRiders] = useState<{ [key: number]: string }>({});
 
   useEffect(() => {
@@ -259,10 +269,43 @@ function AdminDashboard() {
     await supabase.from('menu_items').insert([{ name: newItem.name, price: parseFloat(newItem.price), type: newItem.type, image: newItem.image }]);
     setIsAddingDish(false); fetchData();
   };
+  const handleAddPlan = async () => {
+    const p = { ...newPlan, base_price: parseFloat(newPlan.base_price) };
+    if (!p.id || !p.name || isNaN(p.base_price)) return alert("Please fill all required plan fields.");
+    const { error } = await supabase.from('plans').insert([p]);
+    if (error) alert(error.message); else { setIsAddingPlan(false); fetchData(); }
+  };
+  const handleEditItem = async () => {
+    await supabase.from('menu_items').update({
+      name: editDishModal.name,
+      price: parseFloat(editDishModal.price),
+      type: editDishModal.type,
+      image: editDishModal.image
+    }).eq('id', editDishModal.id);
+    setEditDishModal({ ...editDishModal, isOpen: false });
+    fetchData();
+  };
+  const deleteItem = async (id: number) => { if (confirm("Delete dish?")) { await supabase.from('menu_items').delete().eq('id', id); fetchData(); } };
+  const toggleStock = async (id: number, available: boolean) => { await supabase.from('menu_items').update({ is_available: !available }).eq('id', id); fetchData(); };
+
   const handleAddRider = async () => {
     const { error } = await supabase.from('riders').insert([newRider]);
     if (error) alert(error.message); else { setIsAddingRider(false); fetchData(); }
   };
+  const handleEditRider = async () => {
+    const { error } = await supabase.from('riders').update({
+      name: editRiderModal.name,
+      status: editRiderModal.status
+    }).eq('phone', editRiderModal.phone);
+    if (error) alert(error.message); else { setEditRiderModal({ ...editRiderModal, isOpen: false }); fetchData(); }
+  };
+  const handleDeleteRider = async (phone: string, name: string) => {
+    if (confirm(`Permanently delete rider ${name}?`)) {
+        const { error } = await supabase.from('riders').delete().eq('phone', phone);
+        if (error) alert(error.message); else fetchData();
+    }
+  };
+
   const assignRider = async (orderId: number) => {
     const riderPhone = selectedRiders[orderId];
     if (!riderPhone) return alert("Please select a rider first");
@@ -275,8 +318,20 @@ function AdminDashboard() {
     fetchData();
   };
   const updateOrderStatus = async (id: number, status: string) => { await supabase.from('orders').update({ status }).eq('id', id); fetchData(); };
-  const toggleStock = async (id: number, available: boolean) => { await supabase.from('menu_items').update({ is_available: !available }).eq('id', id); fetchData(); };
-  const deleteItem = async (id: number) => { if (confirm("Delete dish?")) { await supabase.from('menu_items').delete().eq('id', id); fetchData(); } };
+  const cancelOrder = async (id: number) => { 
+    if (!confirm(`Cancel order #${id}? This cannot be undone.`)) return;
+    await supabase.from('orders').update({ status: 'Cancelled' }).eq('id', id); fetchData(); 
+  };
+  const handleEditOrder = async () => {
+    await supabase.from('orders').update({
+        address: editOrderModal.address,
+        building_name: editOrderModal.building_name,
+        delivery_instructions: editOrderModal.delivery_instructions,
+        customer_phone: editOrderModal.customer_phone
+    }).eq('id', editOrderModal.id);
+    setEditOrderModal({ ...editOrderModal, isOpen: false });
+    fetchData();
+  };
 
   // NEW: Wallet Top-Up logic
   const handleTopUp = async () => {
@@ -319,6 +374,7 @@ function AdminDashboard() {
         body: JSON.stringify(editUserModal)
       });
       if (res.ok) {
+        alert("User updated successfully");
         setEditUserModal({ ...editUserModal, isOpen: false });
         fetchData();
       } else {
@@ -327,6 +383,24 @@ function AdminDashboard() {
       }
     } catch (e) {
       alert("Error updating user");
+    }
+  };
+
+  const handleAddUser = async () => {
+    if (!newUser.full_name || !newUser.phone) return alert("Warning: Name and Phone are required.");
+    const res = await fetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newUser)
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert("Customer account created successfully!");
+      setIsAddingUser(false);
+      setNewUser({ full_name: "", phone: "", office: "", initial_balance: "0" });
+      fetchData();
+    } else {
+      alert("Error creating customer: " + data.error);
     }
   };
 
@@ -421,36 +495,88 @@ function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* SIDEBAR */}
-      <aside className="w-64 bg-gray-900 text-white p-6 fixed h-full z-10 flex flex-col">
-        <div className="flex items-center gap-2 mb-10 text-orange-500 font-bold text-2xl"><ChefHat /> Admin</div>
-        <nav className="space-y-2 flex-1 overflow-y-auto pr-2 pb-4 scrollbar-thin scrollbar-thumb-gray-700">
-          <SidebarItem icon={<LayoutDashboard size={20} />} label="Overview" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
-          <SidebarItem icon={<TrendingUp size={20} />} label="Revenue" active={activeTab === 'revenue'} onClick={() => setActiveTab('revenue')} />
-          <SidebarItem icon={<MapPin size={20} />} label="Logistics Map" active={activeTab === 'logistics'} onClick={() => setActiveTab('logistics')} />
-          <SidebarItem icon={<ShoppingBag size={20} />} label="Live Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
-          <SidebarItem icon={<Bike size={20} />} label="Fleet Manager" active={activeTab === 'fleet'} onClick={() => setActiveTab('fleet')} />
-          <SidebarItem icon={<Users size={20} />} label="Customers" active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} />
-          <SidebarItem icon={<Settings size={20} />} label="Store Settings" active={activeTab === 'zones'} onClick={() => setActiveTab('zones')} />
-          <div className="pt-4 pb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Growth & Marketing</div>
-          <SidebarItem icon={<Star size={20} />} label="Feedback (NPS)" active={activeTab === 'feedback'} onClick={() => setActiveTab('feedback')} />
-          <SidebarItem icon={<Megaphone size={20} />} label="Broadcasts" active={activeTab === 'broadcasts'} onClick={() => setActiveTab('broadcasts')} />
-          <div className="pt-4 pb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Content Management</div>
-          <SidebarItem icon={<Utensils size={20} />} label="Add-ons Menu" active={activeTab === 'menu'} onClick={() => setActiveTab('menu')} />
-          <SidebarItem icon={<CreditCard size={20} />} label="Sub. Plans" active={activeTab === 'plans'} onClick={() => setActiveTab('plans')} />
-          <SidebarItem icon={<Calendar size={20} />} label="Weekly Menu" active={activeTab === 'weekly'} onClick={() => setActiveTab('weekly')} />
-          <div className="pt-4 pb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Kitchen Prep</div>
-          <SidebarItem icon={<CalendarClock size={20} />} label="Prep Area (AI)" active={activeTab === 'prep'} onClick={() => setActiveTab('prep')} />
+      <aside className="w-80 bg-gray-900 text-white p-6 fixed h-full z-10 flex flex-col">
+        <div className="flex items-center gap-4 mb-8 pb-8 border-b border-gray-800">
+            <img 
+              src="/logo.svg" 
+              alt="BowlIt Logo" 
+              className="w-16 h-16 object-contain filter invert brightness-0" 
+              onError={(e) => { e.currentTarget.style.display = 'none' }} 
+            />
+            <div className="flex flex-col">
+              <span className="text-white font-black text-2xl tracking-tight leading-none">BowlIt</span>
+              <span className="text-orange-500 font-bold tracking-widest mt-1">ADMINISTRATOR</span>
+            </div>
+        </div>
+
+        <nav className="space-y-2 flex-1 overflow-y-auto pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+          
+          <SidebarAccordion title="Analytics" defaultOpen={true}>
+            <SidebarItem icon={<LayoutDashboard size={22} />} label="Overview" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
+            <SidebarItem icon={<TrendingUp size={22} />} label="Revenue" active={activeTab === 'revenue'} onClick={() => setActiveTab('revenue')} />
+          </SidebarAccordion>
+
+          <SidebarAccordion title="Operations">
+            <SidebarItem icon={<ShoppingBag size={22} />} label="Live Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
+            <SidebarItem icon={<MapPin size={22} />} label="Logistics Map" active={activeTab === 'logistics'} onClick={() => setActiveTab('logistics')} />
+            <SidebarItem icon={<Users size={22} />} label="Customers Directory" active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} />
+            <SidebarItem icon={<Bike size={22} />} label="Fleet Manager" active={activeTab === 'fleet'} onClick={() => setActiveTab('fleet')} />
+          </SidebarAccordion>
+
+          <SidebarAccordion title="Menu & Core">
+            <SidebarItem icon={<CreditCard size={22} />} label="Sub. Plans" active={activeTab === 'plans'} onClick={() => setActiveTab('plans')} />
+            <SidebarItem icon={<Calendar size={22} />} label="Weekly Menu Cycle" active={activeTab === 'weekly'} onClick={() => setActiveTab('weekly')} />
+            <SidebarItem icon={<Utensils size={22} />} label="Add-ons Menu" active={activeTab === 'menu'} onClick={() => setActiveTab('menu')} />
+            <SidebarItem icon={<CalendarClock size={22} />} label="Prep Area (AI)" active={activeTab === 'prep'} onClick={() => setActiveTab('prep')} />
+          </SidebarAccordion>
+
+          <SidebarAccordion title="Store & Growth">
+            <SidebarItem icon={<Settings size={22} />} label="Store Settings" active={activeTab === 'zones'} onClick={() => setActiveTab('zones')} />
+            <SidebarItem icon={<Star size={22} />} label="Feedback (NPS)" active={activeTab === 'feedback'} onClick={() => setActiveTab('feedback')} />
+            <SidebarItem icon={<Megaphone size={22} />} label="Broadcasts" active={activeTab === 'broadcasts'} onClick={() => setActiveTab('broadcasts')} />
+          </SidebarAccordion>
+
         </nav>
-        <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="mt-auto flex items-center gap-2 text-red-400 font-bold pt-10"><LogOut size={16} /> Logout</button>
+        
+        <div className="pt-6 mt-auto border-t border-gray-800">
+          <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 hover:text-red-400 text-gray-400 p-3 rounded-xl transition-colors font-bold text-sm">
+            <LogOut size={16} /> Secure Logout
+          </button>
+        </div>
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 p-8 ml-64">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold capitalize">{activeTab === 'weekly' ? 'Weekly Menu Cycle' : activeTab}</h1>
-          <div className="flex gap-2">
-            {activeTab === 'fleet' && <button onClick={() => setIsAddingRider(true)} className="bg-black text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"><UserPlus size={18} /> Add Rider</button>}
-            {activeTab === 'menu' && <button onClick={() => setIsAddingDish(true)} className="bg-black text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"><Plus size={18} /> Add Dish</button>}
+      <main className="flex-1 p-8 ml-80 bg-white">
+        <div className="flex justify-between items-start mb-8 pb-6 border-b border-gray-100">
+          <div>
+            <h1 className="text-3xl lg:text-4xl font-black capitalize text-gray-900 tracking-tight">
+              {activeTab === 'weekly' ? 'Weekly Menu Cycle' : activeTab === 'zones' ? 'Store Settings' : activeTab}
+            </h1>
+            <p className="mt-2 text-gray-500 font-medium max-w-2xl leading-relaxed text-sm">
+              {
+                {
+                  overview: "High-level pulse of the business: live stats, recent activity, and top metrics.",
+                  revenue: "Deep dive into financial health: charts, cohort retention, and item performance.",
+                  orders: "Real-time kanban board of today's active orders. Mark items out for delivery here.",
+                  logistics: "Live GPS map showing heatmaps of your pending deliveries and active waitlist users.",
+                  customers: "Directory of all registered users. You can edit their metadata or credit their wallet manually.",
+                  fleet: "Add/remove delivery drivers and monitor the active status of your delivery fleet.",
+                  plans: "Create and manage the core Subscription tiers (e.g. 1-Meal, 2-Meal, Monthly packs).",
+                  weekly: "The Master Schedule: define which dishes are served on exactly which days of the week.",
+                  menu: "The master database of all individual dishes you offer. Upload images and set stock here.",
+                  prep: "AI-powered inventory predictions. Calculates exactly how many ingredients you need based on upcoming subscriptions.",
+                  zones: "Global constraints: Modify the delivery geofence on the live map and adjust the viral referral payouts.",
+                  feedback: "Live stream of customer ratings and text reviews. Immediate alerts for scores under 3-stars.",
+                  broadcasts: "Send mass push-notifications to all opted-in users (e.g. 'Flash Sale!')."
+                }[activeTab]
+              }
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            {activeTab === 'fleet' && <button onClick={() => setIsAddingRider(true)} className="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition"><UserPlus size={18} /> Add Rider</button>}
+            {activeTab === 'menu' && <button onClick={() => setIsAddingDish(true)} className="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition"><Plus size={18} /> Add Dish</button>}
+            {activeTab === 'plans' && <button onClick={() => setIsAddingPlan(true)} className="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition"><Plus size={18} /> Add Plan</button>}
+            {activeTab === 'customers' && <button onClick={() => setIsAddingUser(true)} className="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition"><UserPlus size={18} /> Add Customer</button>}
           </div>
         </div>
 
@@ -604,7 +730,7 @@ function AdminDashboard() {
 
             {/* LOGISTICS MAP */}
             {activeTab === 'logistics' && (
-              <LogisticsMap orders={orders} />
+              <LogisticsMap orders={orders} deliveryZone={storeSettings.geofence_polygon} />
             )}
 
             {/* LIVE ORDERS */}
@@ -638,7 +764,11 @@ function AdminDashboard() {
                             <button onClick={() => assignRider(order.id)} className="bg-black text-white px-4 py-2 rounded-lg text-xs font-bold">Assign</button>
                           </div>
                         )}
-                        {order.status !== 'Completed' && (<button onClick={() => updateOrderStatus(order.id, 'Completed')} className="text-green-600 text-xs font-bold hover:underline">Mark Completed Manually</button>)}
+                        <div className="flex items-center gap-3">
+                           <button onClick={() => setEditOrderModal({ isOpen: true, id: order.id, address: order.address || "", building_name: order.building_name || "", delivery_instructions: order.delivery_instructions || "", customer_phone: order.customer_phone || "" })} className="text-gray-500 hover:text-black text-xs font-bold transition-colors">Edit Info</button>
+                           {order.status !== 'Completed' && order.status !== 'Cancelled' && (<button onClick={() => cancelOrder(order.id)} className="text-red-500 hover:text-red-700 text-xs font-bold transition-colors">Cancel Order</button>)}
+                           {order.status !== 'Completed' && order.status !== 'Cancelled' && (<button onClick={() => updateOrderStatus(order.id, 'Completed')} className="bg-green-50 text-green-600 px-3 py-1 rounded-full text-xs font-bold hover:bg-green-100 transition-colors border border-green-200">Mark Completed</button>)}
+                        </div>
                       </div>
                     </div>
                   )
@@ -650,8 +780,20 @@ function AdminDashboard() {
             {activeTab === 'fleet' && (
               <div className="bg-white rounded-2xl border overflow-hidden">
                 <table className="w-full text-left">
-                  <thead className="bg-gray-50 text-xs font-bold uppercase"><tr><th className="p-4">Name</th><th className="p-4">Phone (ID)</th><th className="p-4">Status</th></tr></thead>
-                  <tbody className="divide-y">{riders.map(r => (<tr key={r.phone}><td className="p-4 font-bold">{r.name}</td><td className="p-4">{r.phone}</td><td className="p-4 text-green-600 font-bold">{r.status}</td></tr>))}</tbody>
+                  <thead className="bg-gray-50 text-xs font-bold uppercase"><tr><th className="p-4">Name</th><th className="p-4">Phone (ID)</th><th className="p-4">Status</th><th className="p-4 text-right">Actions</th></tr></thead>
+                  <tbody className="divide-y">{riders.map(r => (
+                    <tr key={r.phone}>
+                      <td className="p-4 font-bold">{r.name}</td>
+                      <td className="p-4">{r.phone}</td>
+                      <td className="p-4 text-green-600 font-bold">{r.status}</td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => setEditRiderModal({ isOpen: true, name: r.name, phone: r.phone, status: r.status })} className="p-2 text-gray-500 hover:text-black bg-gray-50 rounded-lg"><Edit3 size={16} /></button>
+                            <button onClick={() => handleDeleteRider(r.phone, r.name)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}</tbody>
                 </table>
               </div>
             )}
@@ -715,57 +857,79 @@ function AdminDashboard() {
 
             {/* STORE SETTINGS */}
             {activeTab === 'zones' && (
-              <div className="space-y-6">
-
-                {/* 1. Global Referral Engine Controls */}
-                <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100 max-w-lg">
-                  <h3 className="text-xl font-bold flex items-center gap-2 mb-2">🎁 Two-Sided Referral Engine</h3>
-                  <p className="text-sm text-gray-500 mb-6">Dynamically set the wallet payouts when a user refers a friend. <b>Example:</b> "Use my phone number to get ₹100 off, and I get ₹150!"</p>
-
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">Referrer Reward (The person sharing the code)</label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-4 text-gray-400 font-bold">₹</span>
-                        <input
-                          type="number"
-                          value={storeSettings.referral_reward_sender}
-                          onChange={e => setStoreSettings({ ...storeSettings, referral_reward_sender: parseInt(e.target.value) || 0 })}
-                          className="w-full border-2 border-gray-200 focus:border-green-500 p-4 pl-8 rounded-xl outline-none font-bold text-lg text-gray-900 transition-colors"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">Receiver Reward (The new customer)</label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-4 text-gray-400 font-bold">₹</span>
-                        <input
-                          type="number"
-                          value={storeSettings.referral_reward_receiver}
-                          onChange={e => setStoreSettings({ ...storeSettings, referral_reward_receiver: parseInt(e.target.value) || 0 })}
-                          className="w-full border-2 border-gray-200 focus:border-green-500 p-4 pl-8 rounded-xl outline-none font-bold text-lg text-gray-900 transition-colors"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleSaveSettings}
-                      disabled={savingSettings}
-                      className="w-full bg-black hover:bg-gray-800 text-white font-bold p-4 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {savingSettings ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                      {savingSettings ? 'Saving Config...' : 'Save Global Settings'}
-                    </button>
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
+                
+                {/* SETTINGS HEADER */}
+                <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold flex items-center gap-3 text-gray-900"><Settings className="text-orange-500" /> Operational Configurations</h2>
+                    <p className="text-gray-500 text-sm mt-1 font-medium">Manage global operational rules, referral payouts, and your active delivery geofence.</p>
                   </div>
+                  <button
+                    onClick={handleSaveSettings}
+                    disabled={savingSettings}
+                    className="w-full md:w-auto bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-xl shadow-orange-600/20 flex items-center justify-center gap-3 disabled:opacity-50 shrink-0 text-lg"
+                  >
+                    {savingSettings ? <Loader2 className="animate-spin" size={24} /> : <Save size={24} />}
+                    {savingSettings ? 'Synchronizing State...' : 'Commit All Changes'}
+                  </button>
                 </div>
 
-                {/* 2. Geofencing Coordinates map */}
-                <div className="flex justify-center w-full">
-                  <GeofenceMap
-                    polygon={storeSettings.geofence_polygon}
-                    setPolygon={(poly) => setStoreSettings({ ...storeSettings, geofence_polygon: poly })}
-                    onSave={handleSaveSettings}
-                    saving={savingSettings}
-                  />
+                <div className="grid lg:grid-cols-12 gap-8">
+                  {/* 1. Global Referral Engine Controls */}
+                  <div className="lg:col-span-5 bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col">
+                    <div className="mb-8">
+                      <h3 className="text-xl font-black flex items-center gap-3 mb-2"><Gift className="text-green-500" /> Viral Referral Engine</h3>
+                      <p className="text-sm text-gray-500 font-medium">Dynamically set the wallet payouts when a user refers a friend to BowlIt.</p>
+                    </div>
+
+                    <div className="space-y-6 flex-1">
+                      <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Referrer Reward (Inviter)</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-4 text-gray-400 font-bold text-lg">₹</span>
+                          <input
+                            type="number"
+                            value={storeSettings.referral_reward_sender}
+                            onChange={e => setStoreSettings({ ...storeSettings, referral_reward_sender: parseInt(e.target.value) || 0 })}
+                            className="w-full border-2 border-gray-200 focus:border-green-500 focus:ring-4 focus:ring-green-100 p-4 pl-10 rounded-xl outline-none font-black text-2xl text-gray-900 transition-all bg-white shadow-sm"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-400 mt-2 font-medium leading-relaxed">Amount credited to the existing user's wallet when their phone number is used.</p>
+                      </div>
+                      
+                      <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Receiver Reward (New User)</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-4 text-gray-400 font-bold text-lg">₹</span>
+                          <input
+                            type="number"
+                            value={storeSettings.referral_reward_receiver}
+                            onChange={e => setStoreSettings({ ...storeSettings, referral_reward_receiver: parseInt(e.target.value) || 0 })}
+                            className="w-full border-2 border-gray-200 focus:border-green-500 focus:ring-4 focus:ring-green-100 p-4 pl-10 rounded-xl outline-none font-black text-2xl text-gray-900 transition-all bg-white shadow-sm"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-400 mt-2 font-medium leading-relaxed">Instant discount given to the new user checking out for their first time.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Geofencing Coordinates map */}
+                  <div className="lg:col-span-7 bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col">
+                    <div className="mb-6 mb-auto cursor-help" title="To modify the geofence, click and drag the polygon points on the map.">
+                      <h3 className="text-xl font-black flex items-center gap-3 mb-2"><MapPin className="text-blue-500 fill-blue-500/20" /> Serviceable Delivery Zone</h3>
+                      <p className="text-sm text-gray-500 font-medium">Draw a polygon around the areas you actively service. New users dropping pins outside this boundary will be automatically added to the Demand Waitlist.</p>
+                    </div>
+                    
+                    <div className="rounded-2xl overflow-hidden border-2 border-gray-100 shadow-inner md:min-h-[500px]">
+                      <GeofenceMap
+                        polygon={storeSettings.geofence_polygon}
+                        setPolygon={(poly) => setStoreSettings({ ...storeSettings, geofence_polygon: poly })}
+                        onSave={handleSaveSettings}
+                        saving={savingSettings}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -775,7 +939,20 @@ function AdminDashboard() {
               <div className="bg-white rounded-2xl border overflow-hidden">
                 <table className="w-full text-left">
                   <thead className="bg-gray-50 text-xs font-bold uppercase"><tr><th className="p-4">Image</th><th className="p-4">Dish</th><th className="p-4">Price</th><th className="p-4">Stock</th><th className="p-4 text-right">Actions</th></tr></thead>
-                  <tbody className="divide-y">{menuItems.map(item => (<tr key={item.id}><td className="p-4">{item.image ? <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover bg-gray-100" /> : <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300"><Utensils size={16} /></div>}</td><td className="p-4 font-bold">{item.name}</td><td className="p-4">₹{item.price}</td><td className="p-4"><button onClick={() => toggleStock(item.id, item.is_available)} className={`px-2 py-1 rounded text-xs font-bold ${item.is_available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{item.is_available ? "In Stock" : "Out"}</button></td><td className="p-4 text-right"><button onClick={() => deleteItem(item.id)} className="text-red-500"><Trash2 size={18} /></button></td></tr>))}</tbody>
+                  <tbody className="divide-y">{menuItems.map(item => (
+                    <tr key={item.id}>
+                      <td className="p-4">{item.image ? <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover bg-gray-100" /> : <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300"><Utensils size={16} /></div>}</td>
+                      <td className="p-4 font-bold">{item.name}</td>
+                      <td className="p-4">₹{item.price}</td>
+                      <td className="p-4"><button onClick={() => toggleStock(item.id, item.is_available)} className={`px-2 py-1 rounded text-xs font-bold ${item.is_available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{item.is_available ? "In Stock" : "Out"}</button></td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                           <button onClick={() => setEditDishModal({ isOpen: true, id: item.id, name: item.name, price: item.price.toString(), type: item.type, description: item.description || "", image: item.image || "" })} className="p-2 text-gray-500 hover:text-black bg-gray-50 rounded-lg"><Edit3 size={16} /></button>
+                           <button onClick={() => deleteItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}</tbody>
                 </table>
               </div>
             )}
@@ -1109,6 +1286,114 @@ function AdminDashboard() {
             </div>
           </div>
         )}
+
+      {/* CREATE USER MODAL */}
+      {isAddingUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-8 rounded-3xl w-full max-w-md shadow-2xl">
+            <h2 className="text-2xl font-bold mb-6 text-gray-900 flex items-center gap-2">Register New Customer</h2>
+            <div className="space-y-4">
+              <input placeholder="Full Name (e.g. John Doe)" value={newUser.full_name} onChange={e => setNewUser({ ...newUser, full_name: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+              <input type="tel" placeholder="Mobile Number (Used for Auth)" value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+              <input placeholder="Office / Location" value={newUser.office} onChange={e => setNewUser({ ...newUser, office: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+              <div className="relative">
+                  <span className="absolute left-3 top-3.5 text-gray-400 font-bold">₹</span>
+                  <input className="w-full border-2 p-3 pl-8 rounded-xl focus:border-black outline-none font-medium" type="number" placeholder="Initial Wallet Balance" value={newUser.initial_balance} onChange={e => setNewUser({ ...newUser, initial_balance: e.target.value })} />
+              </div>
+              <div className="flex gap-3 pt-4 border-t">
+                <button onClick={() => setIsAddingUser(false)} className="flex-1 px-4 py-3 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">Cancel</button>
+                <button onClick={handleAddUser} className="flex-1 px-4 py-3 rounded-xl font-bold bg-black text-white hover:bg-gray-800">Create Account</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT DISH MODAL (CRUD) */}
+      {editDishModal.isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-8 rounded-3xl w-full max-w-md shadow-2xl">
+            <h2 className="text-2xl font-bold mb-6 text-gray-900">Edit Dish</h2>
+            <div className="space-y-4">
+              <input placeholder="Dish Name" value={editDishModal.name} onChange={e => setEditDishModal({ ...editDishModal, name: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+              <input type="number" placeholder="Price (₹)" value={editDishModal.price} onChange={e => setEditDishModal({ ...editDishModal, price: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+              <select value={editDishModal.type} onChange={e => setEditDishModal({ ...editDishModal, type: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium">
+                <option value="Veg">Veg</option><option value="Non-Veg">Non-Veg</option>
+              </select>
+              <input placeholder="Image URL (Optional)" value={editDishModal.image} onChange={e => setEditDishModal({ ...editDishModal, image: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+              <div className="flex gap-3 pt-4 border-t">
+                <button onClick={() => setEditDishModal({ ...editDishModal, isOpen: false })} className="flex-1 px-4 py-3 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">Cancel</button>
+                <button onClick={handleEditItem} className="flex-1 px-4 py-3 rounded-xl font-bold bg-black text-white hover:bg-gray-800">Save Changes</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT RIDER MODAL (CRUD) */}
+      {editRiderModal.isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-8 rounded-3xl w-full max-w-md shadow-2xl">
+            <h2 className="text-2xl font-bold mb-6 text-gray-900">Edit Delivery Rider</h2>
+            <div className="space-y-4">
+               <div className="p-3 bg-gray-100 rounded-lg text-xs font-mono text-gray-600 border border-gray-200">ID (Phone): {editRiderModal.phone}</div>
+              <input placeholder="Full Name" value={editRiderModal.name} onChange={e => setEditRiderModal({ ...editRiderModal, name: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+              <select value={editRiderModal.status} onChange={e => setEditRiderModal({ ...editRiderModal, status: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium">
+                <option value="Active">Active</option>
+                <option value="Offline">Offline</option>
+                <option value="Suspended">Suspended</option>
+              </select>
+              <div className="flex gap-3 pt-4 border-t">
+                <button onClick={() => setEditRiderModal({ ...editRiderModal, isOpen: false })} className="flex-1 px-4 py-3 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">Cancel</button>
+                <button onClick={handleEditRider} className="flex-1 px-4 py-3 rounded-xl font-bold bg-black text-white hover:bg-gray-800">Update Fleet</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD PLAN MODAL */}
+      {isAddingPlan && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-8 rounded-3xl w-full max-w-md shadow-2xl">
+            <h2 className="text-2xl font-bold mb-6 text-gray-900">Create New Plan</h2>
+            <div className="space-y-4">
+              <input placeholder="Package ID (e.g. 5-meal-pack)" value={newPlan.id} onChange={e => setNewPlan({ ...newPlan, id: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium text-sm font-mono text-gray-500" />
+              <input placeholder="Display Name (e.g. Starter Pack)" value={newPlan.name} onChange={e => setNewPlan({ ...newPlan, name: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+              <div className="flex gap-4">
+                 <input type="number" placeholder="Daily Price (₹)" value={newPlan.base_price} onChange={e => setNewPlan({ ...newPlan, base_price: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+                 <select value={newPlan.type} onChange={e => setNewPlan({ ...newPlan, type: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium">
+                   <option value="veg">Veg Only</option><option value="non-veg">Non-Veg Only</option><option value="both">Both Available</option>
+                 </select>
+              </div>
+              <textarea placeholder="Short description..." value={newPlan.description} onChange={e => setNewPlan({ ...newPlan, description: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium resize-none" rows={2} />
+              <div className="flex gap-3 pt-4 border-t">
+                <button onClick={() => setIsAddingPlan(false)} className="flex-1 px-4 py-3 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">Cancel</button>
+                <button onClick={handleAddPlan} className="flex-1 px-4 py-3 rounded-xl font-bold bg-black text-white hover:bg-gray-800">Create Plan</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT ORDER INFO MODAL (CRUD) */}
+      {editOrderModal.isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-8 rounded-3xl w-full max-w-md shadow-2xl">
+            <h2 className="text-2xl font-bold mb-6 text-gray-900 flex items-center gap-2">Edit Order Delivery Info</h2>
+            <div className="space-y-4">
+              <input placeholder="Customer Phone" value={editOrderModal.customer_phone} onChange={e => setEditOrderModal({ ...editOrderModal, customer_phone: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+              <textarea placeholder="Full Address" value={editOrderModal.address} onChange={e => setEditOrderModal({ ...editOrderModal, address: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium resize-none" rows={2} />
+              <input placeholder="Building / Flat No." value={editOrderModal.building_name} onChange={e => setEditOrderModal({ ...editOrderModal, building_name: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+              <input placeholder="Delivery Instructions" value={editOrderModal.delivery_instructions} onChange={e => setEditOrderModal({ ...editOrderModal, delivery_instructions: e.target.value })} className="w-full border-2 rounded-xl p-3 focus:border-black outline-none font-medium" />
+              <div className="flex gap-3 pt-4 border-t">
+                <button onClick={() => setEditOrderModal({ ...editOrderModal, isOpen: false })} className="flex-1 px-4 py-3 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">Cancel</button>
+                <button onClick={handleEditOrder} className="flex-1 px-4 py-3 rounded-xl font-bold bg-black text-white hover:bg-gray-800">Save Information</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       </main>
     </div >
   );

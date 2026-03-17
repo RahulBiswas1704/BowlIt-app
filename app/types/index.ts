@@ -31,6 +31,9 @@ export type Rider = {
     phone: string;
     name: string;
     status: string;
+    lat?: number;
+    lng?: number;
+    last_location_update?: string;
 };
 
 export type Customer = {

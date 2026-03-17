@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Edit3, Save, Plus, X } from "lucide-react";
+import { Edit3, Save, Plus, X, Trash2 } from "lucide-react";
 import { Plan } from "../../types";
 import { supabaseAdmin as supabase } from "../../lib/supabaseAdminClient";
 
@@ -20,6 +20,13 @@ export function PlanCard({ plan, onUpdate }: { plan: Plan; onUpdate: () => void 
         setIsEditing(false);
         alert("Plan updated!");
         onUpdate();
+    };
+
+    const handleDelete = async () => {
+        if (!confirm(`Are you sure you want to delete ${plan.name}? This will affect active subscriptions.`)) return;
+        const { error } = await supabase.from('plans').delete().eq('id', plan.id);
+        if (error) alert("Error deleting plan: " + error.message);
+        else onUpdate();
     };
 
     const handleAddFeature = () => {
@@ -50,9 +57,16 @@ export function PlanCard({ plan, onUpdate }: { plan: Plan; onUpdate: () => void 
                 ) : (
                     <h3 className="text-xl font-bold">{plan.name}</h3>
                 )}
-                <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className={`p-2 rounded-full flex-shrink-0 ${isEditing ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 hover:bg-black hover:text-white'}`}>
-                    {isEditing ? <Save size={16} /> : <Edit3 size={16} />}
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className={`p-2 rounded-full ${isEditing ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 hover:bg-black hover:text-white'}`}>
+                        {isEditing ? <Save size={16} /> : <Edit3 size={16} />}
+                    </button>
+                    {!isEditing && (
+                        <button onClick={handleDelete} className="p-2 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-colors">
+                            <Trash2 size={16} />
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="mb-4">

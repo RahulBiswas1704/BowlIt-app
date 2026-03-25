@@ -89,23 +89,30 @@ export async function DELETE(request: Request) {
 
         if (!id) return NextResponse.json({ error: "User ID required" }, { status: 400 });
 
-        // IMPORTANT: Because Supabase throws a foreign key constraint error if we 
-        // try to delete a user who has active rows in public tables, we must manually
-        // delete all associated data BEFORE deleting the auth.users record.
+        // IMPORTANT: PostgreSQL requires deleting child records BEFORE parent records 
+        // to avoid Foreign Key Violations. We also must await and check for errors.
 
-        // 1. Delete Wallet
+        const throwErr = (e: any, step: string) => { if (e) { console.error(`Failed at ${step}:`, e); throw e; } };
+
+        // 1. Delete Feedback (Child of Orders and Users)
+        const resFeedback = await supabaseAdmin.from('feedback').delete().eq('user_id', id);
+        throwErr(resFeedback.error, 'feedback');
+
+        // 2. Delete Referrals
+        await supabaseAdmin.from('referrals').delete().eq('referrer_id', id);
+        await supabaseAdmin.from('referrals').delete().eq('referred_id', id);
+
+        // 3. Delete Orders (Child of Users, Parent of Feedback)
+        const resOrders = await supabaseAdmin.from('orders').delete().eq('user_id', id);
+        throwErr(resOrders.error, 'orders');
+
+        // 4. Delete Independent User Assets
         await supabaseAdmin.from('wallets').delete().eq('user_id', id);
-
-        // 2. Delete Paused Dates
         await supabaseAdmin.from('paused_dates').delete().eq('user_id', id);
-
-        // 3. Delete Push Subscriptions
         await supabaseAdmin.from('push_subscriptions').delete().eq('user_id', id);
-
-        // 4. Delete Orders (if they reference user_id explicitly)
-        // Note: For absolute safety we attempt deletion on all standard tables that 
-        // might hold an FK constraint against auth.users.
-        await supabaseAdmin.from('orders').delete().eq('user_id', id);
+        
+        // 5. Delete from Admins (just in case they are an admin)
+        await supabaseAdmin.from('admins').delete().eq('id', id);
 
         // FINALLY: Delete the User from Auth
         const { error } = await supabaseAdmin.auth.admin.deleteUser(id);

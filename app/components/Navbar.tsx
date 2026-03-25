@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { User, ShoppingBag, LogOut, Wallet, Bell, BellOff } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 import LoginModal from "./LoginModal";
 import CartDrawer from "./CartDrawer";
@@ -11,6 +12,7 @@ import ProfileSetupModal from "./ProfileSetupModal";
 import { useCart } from "../context/CartContext";
 
 export default function Navbar() {
+  const pathname = usePathname();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
@@ -112,6 +114,8 @@ export default function Navbar() {
   };
 
   const displayName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || "Guest";
+
+  if (pathname?.startsWith('/admin') || pathname?.startsWith('/rider') || pathname?.startsWith('/profile')) return null;
 
   return (
     <>

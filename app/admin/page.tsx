@@ -23,6 +23,8 @@ import { WeeklyMenuRow } from "./components/WeeklyMenuRow";
 import { LogisticsMap } from "./components/LogisticsMap";
 import { GeofenceMap } from "./components/GeofenceMap";
 import { SidebarAccordion } from "./components/SidebarAccordion";
+import { PromoManager } from "./components/PromoManager";
+import { LedgerModal } from "./components/LedgerModal";
 
 export default function AdminPanel() {
   const [session, setSession] = useState<Session | null>(null);
@@ -78,7 +80,7 @@ function AdminLogin({ onLoginSuccess }: { onLoginSuccess: () => void }) {
 
 // --- DASHBOARD ---
 function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'logistics' | 'orders' | 'customers' | 'menu' | 'fleet' | 'zones' | 'plans' | 'weekly' | 'broadcasts' | 'prep' | 'feedback'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'logistics' | 'orders' | 'customers' | 'menu' | 'fleet' | 'zones' | 'plans' | 'weekly' | 'broadcasts' | 'prep' | 'feedback' | 'promos'>('overview');
   const [loading, setLoading] = useState(false);
 
   // Data State
@@ -110,6 +112,7 @@ function AdminDashboard() {
   
   const [topUpModal, setTopUpModal] = useState<{ isOpen: boolean, customerId: string, amount: string }>({ isOpen: false, customerId: "", amount: "" }); // NEW
   const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, id: string, full_name: string, phone: string, office: string, new_balance: string }>({ isOpen: false, id: "", full_name: "", phone: "", office: "", new_balance: "" });
+  const [ledgerModal, setLedgerModal] = useState<{ isOpen: boolean, customerId: string, customerName: string }>({ isOpen: false, customerId: "", customerName: "" });
 
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastBody, setBroadcastBody] = useState("");
@@ -342,6 +345,14 @@ function AdminDashboard() {
       const newBalance = wallet.balance + parseFloat(topUpModal.amount);
       await supabase.from('wallets').update({ balance: newBalance }).eq('user_id', topUpModal.customerId);
 
+      // Log Transaction
+      await supabase.from('wallet_transactions').insert({
+        user_id: topUpModal.customerId,
+        amount: parseFloat(topUpModal.amount),
+        type: 'CREDIT',
+        description: `Manual Top-Up by Admin`
+      });
+
       // AUTOMATED RECEIPT PUSH
       try {
         await fetch('/api/send-push', {
@@ -532,6 +543,7 @@ function AdminDashboard() {
 
           <SidebarAccordion title="Store & Growth">
             <SidebarItem icon={<Settings size={22} />} label="Store Settings" active={activeTab === 'zones'} onClick={() => setActiveTab('zones')} />
+            <SidebarItem icon={<Gift size={22} />} label="Promo Codes" active={activeTab === 'promos'} onClick={() => setActiveTab('promos')} />
             <SidebarItem icon={<Star size={22} />} label="Feedback (NPS)" active={activeTab === 'feedback'} onClick={() => setActiveTab('feedback')} />
             <SidebarItem icon={<Megaphone size={22} />} label="Broadcasts" active={activeTab === 'broadcasts'} onClick={() => setActiveTab('broadcasts')} />
           </SidebarAccordion>
@@ -567,7 +579,8 @@ function AdminDashboard() {
                   prep: "AI-powered inventory predictions. Calculates exactly how many ingredients you need based on upcoming subscriptions.",
                   zones: "Global constraints: Modify the delivery geofence on the live map and adjust the viral referral payouts.",
                   feedback: "Live stream of customer ratings and text reviews. Immediate alerts for scores under 3-stars.",
-                  broadcasts: "Send mass push-notifications to all opted-in users (e.g. 'Flash Sale!')."
+                  broadcasts: "Send mass push-notifications to all opted-in users (e.g. 'Flash Sale!').",
+                  promos: "Generate and track single-use Promo Codes for marketing campaigns to credit user wallets."
                 }[activeTab]
               }
             </p>
@@ -733,6 +746,11 @@ function AdminDashboard() {
               <LogisticsMap orders={orders} deliveryZone={storeSettings.geofence_polygon} />
             )}
 
+            {/* PROMO CODES MANAGER */}
+            {activeTab === 'promos' && (
+              <PromoManager />
+            )}
+
             {/* LIVE ORDERS */}
             {activeTab === 'orders' && (
               <div className="space-y-4">
@@ -826,6 +844,14 @@ function AdminDashboard() {
                               title="Send Push Notification"
                             >
                               <Bell size={14} /> Ping
+                            </button>
+
+                            <button
+                              onClick={() => setLedgerModal({ isOpen: true, customerId: c.id, customerName: c.full_name })}
+                              className="bg-gray-100 hover:bg-black hover:text-white transition-colors text-gray-700 p-1.5 rounded-lg border flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
+                              title="View Wallet Ledger"
+                            >
+                              <CreditCard size={14} /> Ledger
                             </button>
 
                             <button
@@ -1394,6 +1420,14 @@ function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* CUSTOMER LEDGER MODAL */}
+      <LedgerModal
+        isOpen={ledgerModal.isOpen}
+        customerId={ledgerModal.customerId}
+        customerName={ledgerModal.customerName}
+        onClose={() => setLedgerModal({ ...ledgerModal, isOpen: false })}
+      />
       </main>
     </div >
   );

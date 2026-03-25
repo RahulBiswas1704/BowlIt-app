@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { PlanSummaryCard } from "./components/PlanSummaryCard";
 import { PersonalDetailsForm } from "./components/PersonalDetailsForm";
 import { AddressManager } from "./components/AddressManager";
+import { ReferralHub } from "./components/ReferralHub";
 import { LiveTrackingCard } from "../components/LiveTrackingCard";
 
 export default function ProfilePage() {
@@ -27,6 +28,10 @@ export default function ProfilePage() {
   const [credits, setCredits] = useState(0);
   const [activePlan, setActivePlan] = useState("");
   const [storeSettings, setStoreSettings] = useState<{ referral_reward_sender: number, referral_reward_receiver: number }>({ referral_reward_sender: 150, referral_reward_receiver: 100 });
+
+  // NEW: Referral Stats
+  const [friendsJoined, setFriendsJoined] = useState(0);
+  const [earnedCredits, setEarnedCredits] = useState(0);
 
   // Tab State
   const [activeTab, setActiveTab] = useState("menu");
@@ -80,42 +85,48 @@ export default function ProfilePage() {
         setCredits(meta.credits || 0);
         setActivePlan(meta.active_plan || "");
 
-        // 2. Fetch Wallet
-        const { data: wallet } = await supabase.from('wallets').select('balance').eq('user_id', user.id).single();
-        setBalance(wallet?.balance || 0);
+        // 2 - 5. Execute Highly Concurrent Data Fetches for Maximum Speed
+        const walletPromise = supabase.from('wallets').select('balance').eq('user_id', user.id).single();
+        const ordersPromise = supabase.from('orders').select('id, created_at, status, total_amount').eq('customer_phone', meta.phone || '0000000000');
+        const pauseDataPromise = supabase.from('paused_dates').select('pause_date').eq('user_id', user.id);
+        const settingsPromise = fetch('/api/admin/settings').then(r => r.json()).catch(() => ({ settings: null }));
+        const referralsPromise = supabase.from('referrals').select('reward_amount_sender').eq('referrer_id', user.id);
 
-        // 3. Fetch Orders (Prevent undefined error if phone missing)
-        const { data: orderData } = await supabase.from('orders').select('id, created_at, status, total_amount').eq('customer_phone', meta.phone || '0000000000');
-        setOrders(orderData || []);
+        const [walletRes, ordersRes, pauseDataRes, settingsRes, referralsRes] = await Promise.all([
+          walletPromise,
+          ordersPromise,
+          pauseDataPromise,
+          settingsPromise,
+          referralsPromise
+        ]);
+
+        setBalance(walletRes.data?.balance || 0);
+
+        const fetchedOrders: any[] = ordersRes.data || [];
+        setOrders(fetchedOrders);
 
         // 3.5 Check for Unrated Orders
-        if (orderData && orderData.length > 0) {
-          const lastCompleted = orderData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).find((o: any) => o.status === "Completed");
-
+        if (fetchedOrders.length > 0) {
+          const lastCompleted = fetchedOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).find((o: any) => o.status === "Completed");
           if (lastCompleted) {
             const { data: existingFeedback } = await supabase.from('feedback').select('id').eq('order_id', lastCompleted.id).single();
-            if (!existingFeedback) {
-              setPendingFeedbackOrder(lastCompleted);
-            }
+            if (!existingFeedback) setPendingFeedbackOrder(lastCompleted);
           }
         }
 
-        // 4. Fetch Paused Dates
-        const { data: pauseData } = await supabase.from('paused_dates').select('pause_date').eq('user_id', user.id);
-        setPausedDates(pauseData?.map((p: any) => p.pause_date) || []);
+        setPausedDates(pauseDataRes.data?.map((p: any) => p.pause_date) || []);
 
-        // 5. Fetch Store Settings
-        try {
-          const res = await fetch('/api/admin/settings');
-          const result = await res.json();
-          if (result.settings) {
-            setStoreSettings({
-              referral_reward_sender: result.settings.referral_reward_sender || 150,
-              referral_reward_receiver: result.settings.referral_reward_receiver || 100
-            });
-          }
-        } catch (e) {
-          console.error("Failed to load settings:", e);
+        if (settingsRes?.settings) {
+          setStoreSettings({
+            referral_reward_sender: settingsRes.settings.referral_reward_sender || 150,
+            referral_reward_receiver: settingsRes.settings.referral_reward_receiver || 100
+          });
+        }
+
+        if (referralsRes?.data) {
+          setFriendsJoined(referralsRes.data.length);
+          const totalEarned = referralsRes.data.reduce((sum: number, ref: any) => sum + (ref.reward_amount_sender || 0), 0);
+          setEarnedCredits(totalEarned);
         }
       } catch (err) {
         console.error("Profile load error:", err);
@@ -479,30 +490,12 @@ export default function ProfilePage() {
 
                 {/* 3. REFERRAL HUB */}
                 {activeTab === 'refer' && (
-                  <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-[2.5rem] p-8 shadow-2xl text-white relative overflow-hidden border border-gray-800">
-                    <div className="absolute -right-10 -top-10 text-orange-500/10 rotate-12 blur-[1px]"><Gift size={220} /></div>
-                    <div className="relative z-10">
-                      <div className="inline-flex items-center gap-2 bg-orange-600/20 text-orange-400 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 border border-orange-500/20"><Share2 size={14} /> Viral Growth Program</div>
-                      <h2 className="text-3xl font-black mb-3 leading-tight tracking-tight">Invite Friends & <br/><span className="text-orange-500">Earn ₹{storeSettings.referral_reward_sender}</span></h2>
-                      <p className="text-gray-400 mb-8 text-sm font-medium leading-relaxed">Share your exclusive promo code with your colleagues. They save <span className="text-white font-bold">₹{storeSettings.referral_reward_receiver}</span> on their first order, and you earn <span className="text-white font-bold">₹{storeSettings.referral_reward_sender}</span> directly to your BowlIt Wallet!</p>
-                      
-                      <div className="bg-white/5 rounded-3xl p-6 flex flex-col items-center justify-between gap-5 backdrop-blur-xl border border-white/10 text-center shadow-inner">
-                        <div>
-                          <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Your VIP Promo Code</div>
-                          <div className="text-4xl font-mono font-black tracking-widest text-white drop-shadow-md">{formData.phone || 'NO_PHONE'}</div>
-                        </div>
-                        
-                        <div className="w-full space-y-3 mt-2">
-                          <button onClick={() => { navigator.clipboard.writeText(formData.phone); alert('Code copied to clipboard!'); }} className="w-full bg-white/10 text-white font-bold px-6 py-4 rounded-2xl hover:bg-white/20 transition-all flex items-center justify-center gap-2 border border-white/10">
-                            Copy Code
-                          </button>
-                          <button onClick={() => { const message = `Hey! Use my VIP code *${formData.phone}* on BowlIt.in to get ₹${storeSettings.referral_reward_receiver} off your first freshly prepared meal! 🍛🚀`; window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank'); }} className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-black px-6 py-4 rounded-2xl shadow-lg hover:shadow-green-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-                            <Share2 size={18} /> Share on WhatsApp
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <ReferralHub 
+                    storeSettings={storeSettings} 
+                    userPhone={formData.phone} 
+                    friendsJoined={friendsJoined}
+                    earnedCredits={earnedCredits}
+                  />
                 )}
 
                 {/* 4. ORDERS */}

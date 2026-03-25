@@ -56,6 +56,14 @@ export async function POST(request: Request) {
             balance: currentBalance + senderReward
         }, { onConflict: 'user_id' });
 
+        // 5. Log transaction in Ledger
+        await supabaseAdmin.from('wallet_transactions').insert([{
+            user_id: referrerId,
+            amount: senderReward,
+            type: 'CREDIT',
+            description: `Referral Bonus (New Friend Joined!)`
+        }]);
+
         return NextResponse.json({ success: true, rewarded: senderReward });
 
     } catch (error: any) {

@@ -14,8 +14,8 @@ export default function Footer() {
     }
   }, []);
 
-  // Hide the footer completely on Admin and Rider dashboards, and Installed PWA apps
-  if (pathname?.startsWith('/admin') || pathname?.startsWith('/rider') || isStandalone) {
+  // Hide the footer completely on Admin, Rider, Profile dashboards, and Installed PWA apps
+  if (pathname?.startsWith('/admin') || pathname?.startsWith('/rider') || pathname?.startsWith('/profile') || isStandalone) {
     return null;
   }
 

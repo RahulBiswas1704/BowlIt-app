@@ -54,76 +54,78 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/");
-        return;
-      }
-      setUserId(user.id);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push("/");
+          return;
+        }
+        setUserId(user.id);
 
-      // 1. Fetch Profile & Credits
-      const meta = user.user_metadata || {};
-      setFormData({
-        fullName: meta.full_name || "",
-        phone: meta.phone || "",
-        email: user.email || "",
-        diet: meta.diet || "Veg",
-        gender: meta.gender || "",
-        dob: meta.dob || "",
-        latitude: meta.latitude || null,
-        longitude: meta.longitude || null,
-        building_name: meta.building_name || "",
-        delivery_instructions: meta.delivery_instructions || "",
-      });
-      setIsAutoOrderActive(meta.auto_order !== false);
-      setCredits(meta.credits || 0);          // <--- GET CREDITS
-      setActivePlan(meta.active_plan || "");  // <--- GET PLAN NAME
+        // 1. Fetch Profile & Credits
+        const meta = user.user_metadata || {};
+        setFormData({
+          fullName: meta.full_name || "",
+          phone: meta.phone || "",
+          email: user.email || "",
+          diet: meta.diet || "Veg",
+          gender: meta.gender || "",
+          dob: meta.dob || "",
+          latitude: meta.latitude || null,
+          longitude: meta.longitude || null,
+          building_name: meta.building_name || "",
+          delivery_instructions: meta.delivery_instructions || "",
+        });
+        setIsAutoOrderActive(meta.auto_order !== false);
+        setCredits(meta.credits || 0);
+        setActivePlan(meta.active_plan || "");
 
-      // 2. Fetch Wallet
-      const { data: wallet } = await supabase.from('wallets').select('balance').eq('user_id', user.id).single();
-      setBalance(wallet?.balance || 0);
+        // 2. Fetch Wallet
+        const { data: wallet } = await supabase.from('wallets').select('balance').eq('user_id', user.id).single();
+        setBalance(wallet?.balance || 0);
 
-      // 3. Fetch Orders (Exclude feedback lookup on the initial array for speed)
-      const { data: orderData } = await supabase.from('orders').select('id, created_at, status, total_amount').eq('customer_phone', meta.phone);
-      setOrders(orderData || []);
+        // 3. Fetch Orders (Prevent undefined error if phone missing)
+        const { data: orderData } = await supabase.from('orders').select('id, created_at, status, total_amount').eq('customer_phone', meta.phone || '0000000000');
+        setOrders(orderData || []);
 
-      // 3.5 Check for Unrated Orders (NPS Popup Trigger)
-      if (orderData && orderData.length > 0) {
-        // Find the most recent strictly "Completed" order
-        const lastCompleted = orderData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).find(o => o.status === "Completed");
+        // 3.5 Check for Unrated Orders
+        if (orderData && orderData.length > 0) {
+          const lastCompleted = orderData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).find((o: any) => o.status === "Completed");
 
-        if (lastCompleted) {
-          // See if it already has a feedback entry
-          const { data: existingFeedback } = await supabase.from('feedback').select('id').eq('order_id', lastCompleted.id).single();
-          if (!existingFeedback) {
-            setPendingFeedbackOrder(lastCompleted);
+          if (lastCompleted) {
+            const { data: existingFeedback } = await supabase.from('feedback').select('id').eq('order_id', lastCompleted.id).single();
+            if (!existingFeedback) {
+              setPendingFeedbackOrder(lastCompleted);
+            }
           }
         }
-      }
 
-      // 4. Fetch Paused Dates
-      const { data: pauseData } = await supabase.from('paused_dates').select('pause_date').eq('user_id', user.id);
-      setPausedDates(pauseData?.map(p => p.pause_date) || []);
+        // 4. Fetch Paused Dates
+        const { data: pauseData } = await supabase.from('paused_dates').select('pause_date').eq('user_id', user.id);
+        setPausedDates(pauseData?.map((p: any) => p.pause_date) || []);
 
-      // 5. Fetch Store Settings (For dynamic referral reward amounts)
-      try {
-        const res = await fetch('/api/admin/settings');
-        const result = await res.json();
-        if (result.settings) {
-          setStoreSettings({
-            referral_reward_sender: result.settings.referral_reward_sender || 150,
-            referral_reward_receiver: result.settings.referral_reward_receiver || 100
-          });
+        // 5. Fetch Store Settings
+        try {
+          const res = await fetch('/api/admin/settings');
+          const result = await res.json();
+          if (result.settings) {
+            setStoreSettings({
+              referral_reward_sender: result.settings.referral_reward_sender || 150,
+              referral_reward_receiver: result.settings.referral_reward_receiver || 100
+            });
+          }
+        } catch (e) {
+          console.error("Failed to load settings:", e);
         }
-      } catch (e) {
-        console.error("Failed to load settings:", e);
+      } catch (err) {
+        console.error("Profile load error:", err);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
     fetchData();
-  }, []);
+  }, [router]);
 
   // --- CALENDAR HELPERS ---
   const getDaysInMonth = (date: Date) => {

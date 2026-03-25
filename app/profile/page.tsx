@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { User, Phone, MapPin, Calendar as CalendarIcon, Wallet, Save, Loader2, Utensils, Mail, ArrowLeft, ChevronLeft, ChevronRight, PauseCircle, PlayCircle, CheckCircle, XCircle, Share2, Gift, Star, ShoppingBag, Settings, LayoutDashboard } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { User, Phone, MapPin, Calendar as CalendarIcon, Wallet, Save, Loader2, Utensils, Mail, ArrowLeft, ChevronLeft, ChevronRight, PauseCircle, PlayCircle, CheckCircle, XCircle, Share2, Gift, Star, ShoppingBag, Settings, LayoutDashboard, Edit2, Truck, HelpCircle, MessageCircle, LogOut } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -237,303 +237,314 @@ export default function ProfilePage() {
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'calendar', label: 'Meal Calendar', icon: CalendarIcon },
-    { id: 'orders', label: 'Order History', icon: ShoppingBag },
-    { id: 'addresses', label: 'Addresses', icon: MapPin },
-    { id: 'settings', label: 'Settings', icon: Settings },
-  ];
-
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-600" /></div>;
 
   return (
-    <main className="min-h-screen bg-gray-50 pt-20 md:pt-24 pb-12 px-4 md:px-6 relative">
-      <div className="max-w-4xl mx-auto space-y-6 md:space-y-8">
+    <main className="min-h-screen bg-gray-50 flex justify-center relative overflow-hidden">
 
-        {/* --- AUTO-FEEDBACK (NPS) MODAL --- */}
-        {pendingFeedbackOrder && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+      {/* BACKGROUND GRAPHIC (OPTIONAL FADE) */}
+      <div className="absolute top-0 w-full h-64 bg-gradient-to-b from-gray-100 to-transparent pointer-events-none" />
+
+      <div className="w-full max-w-lg relative z-10 pb-20">
+        <AnimatePresence mode="wait">
+
+          {/* -------------------- MASTER MENU STACK -------------------- */}
+          {activeTab === 'menu' && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="bg-white rounded-[2rem] p-6 md:p-10 shadow-2xl max-w-sm w-full text-center relative overflow-hidden"
+              key="menu"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="pt-12 px-5 space-y-8"
             >
-              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-400 to-orange-600"></div>
-
-              <div className="mx-auto w-16 h-16 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mb-4 ring-8 ring-orange-50/50">
-                <Utensils size={28} />
+              {/* TOP HEADER */}
+              <div className="flex justify-between items-center">
+                <Link href="/" className="p-2 -ml-2 text-gray-800 hover:bg-gray-200 rounded-full transition-colors">
+                  <ArrowLeft size={24} />
+                </Link>
+                <h1 className="text-xl font-bold text-gray-900">Account</h1>
+                <button onClick={() => setActiveTab('settings')} className="p-2 -mr-2 text-green-600 hover:bg-green-50 rounded-full transition-colors">
+                  <Settings size={24} />
+                </button>
               </div>
 
-              <h3 className="text-2xl font-black text-gray-900 mb-2">How was your lunch?</h3>
-              <p className="text-sm font-medium text-gray-500 mb-8">
-                Your order (#{pendingFeedbackOrder.id}) was delivered recently. Rate your meal to help us improve!
-              </p>
+              {/* USER PROFILE CARD */}
+              <div className="flex flex-col items-center justify-center mt-2">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full bg-gray-900 flex items-center justify-center text-white text-3xl font-bold uppercase overflow-hidden border-[3px] border-white shadow-md">
+                    {formData.fullName ? formData.fullName.charAt(0) : <User size={40} />}
+                  </div>
+                  <button onClick={() => setActiveTab('settings')} className="absolute bottom-0 right-0 bg-green-600 text-white p-1.5 rounded-full border-2 border-white shadow-sm hover:scale-105 transition-transform"><Edit2 size={14} /></button>
+                </div>
+                <h2 className="text-2xl font-black text-gray-900 mt-4 tracking-tight">{formData.fullName || "Fresh User"}</h2>
+                <p className="text-sm font-medium text-gray-500 mt-0.5">{formData.phone ? `+91 ${formData.phone}` : "No phone added"}</p>
+              </div>
 
-              {/* STAR RATING INTERFACE */}
-              <div className="flex justify-center gap-2 mb-8">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onMouseEnter={() => setHoveredStar(star)}
-                    onMouseLeave={() => setHoveredStar(0)}
-                    onClick={() => setRating(star)}
-                    className={`transition-all duration-200 ${(hoveredStar || rating) >= star
-                        ? 'text-yellow-400 scale-110 drop-shadow-md'
-                        : 'text-gray-200 hover:text-yellow-200'
-                      }`}
-                  >
-                    <Star size={40} className={(hoveredStar || rating) >= star ? 'fill-current' : ''} />
+              {/* HERO ACTIVE PLAN CARD */}
+              <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 flex flex-col items-center relative mx-auto">
+                <div className="w-16 h-16 bg-green-400 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-green-200 mb-4 transform -rotate-3">
+                  <Utensils size={32} className="rotate-3" />
+                </div>
+                <div className="bg-green-600 text-white text-[10px] uppercase font-black tracking-widest px-3 py-1 rounded-full mb-2">Active Plan</div>
+                <h3 className="text-2xl font-black text-gray-900 mb-1">{activePlan || "No Active Plan"}</h3>
+                <p className="text-xs text-gray-500 font-medium mb-6">Meals remaining: <span className="font-bold text-gray-900">{credits} deliveries</span></p>
+                <button onClick={() => setActiveTab('calendar')} className="w-full bg-[#9a3412] text-white font-bold py-3.5 rounded-xl hover:bg-[#7c2d12] transition-colors shadow-lg shadow-orange-900/20">
+                  Manage Plan
+                </button>
+              </div>
+
+              {/* CORE FEATURES STACK */}
+              <div className="space-y-4">
+                <button onClick={() => setActiveTab('calendar')} className="w-full bg-white p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-shadow border border-gray-100">
+                  <div className="bg-gray-100 text-green-700 p-3 rounded-xl"><Truck size={22} /></div>
+                  <div className="text-left flex-grow">
+                    <div className="font-bold text-gray-900 text-base">Manage Delivery</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5">Schedule, pause, or change address</div>
+                  </div>
+                  <ChevronRight size={20} className="text-gray-300" />
+                </button>
+
+                <button onClick={() => setActiveTab('wallet')} className="w-full bg-white p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-shadow border border-gray-100">
+                  <div className="bg-gray-100 text-green-700 p-3 rounded-xl"><Wallet size={22} /></div>
+                  <div className="text-left flex-grow">
+                    <div className="font-bold text-gray-900 text-base">My Wallet</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5">Balance: ₹{balance.toFixed(2)}</div>
+                  </div>
+                  <ChevronRight size={20} className="text-gray-300" />
+                </button>
+
+                <button onClick={() => setActiveTab('refer')} className="w-full bg-white p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-shadow border border-gray-100">
+                  <div className="bg-gray-100 text-[#9a3412] p-3 rounded-xl"><Gift size={22} /></div>
+                  <div className="text-left flex-grow">
+                    <div className="font-bold text-gray-900 text-base">Referral Hub</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5">Earn ₹{storeSettings.referral_reward_sender} for every friend</div>
+                  </div>
+                  <ChevronRight size={20} className="text-gray-300" />
+                </button>
+
+                <button onClick={() => setActiveTab('orders')} className="w-full bg-white p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-shadow border border-gray-100">
+                  <div className="bg-gray-100 text-blue-600 p-3 rounded-xl"><ShoppingBag size={22} /></div>
+                  <div className="text-left flex-grow">
+                    <div className="font-bold text-gray-900 text-base">Order History</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5">{orders.length} past deliveries</div>
+                  </div>
+                  <ChevronRight size={20} className="text-gray-300" />
+                </button>
+              </div>
+
+              {/* ACCOUNT SETTINGS LIST */}
+              <div className="mt-8">
+                <h4 className="text-[10px] font-black tracking-[0.2em] text-gray-400 uppercase mb-3 ml-4">Account Settings</h4>
+                <div className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                  <button onClick={() => setActiveTab('settings')} className="w-full p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors border-b border-gray-100">
+                    <div className="text-gray-700"><Mail size={20} /></div>
+                    <div className="text-left flex-grow">
+                      <div className="font-bold text-gray-900 text-[13px]">Email Address</div>
+                      <div className="text-[11px] font-medium text-gray-500 mt-0.5">{formData.email || 'Click to verify email'}</div>
+                    </div>
+                    <ChevronRight size={18} className="text-gray-300" />
                   </button>
-                ))}
+                  <button onClick={() => setActiveTab('addresses')} className="w-full p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors">
+                    <div className="text-gray-700"><MapPin size={20} /></div>
+                    <div className="text-left flex-grow">
+                      <div className="font-bold text-gray-900 text-[13px]">Saved Addresses</div>
+                      <div className="text-[11px] font-medium text-gray-500 mt-0.5">{formData.building_name ? 'Home, Work, Other' : 'Add delivery location'}</div>
+                    </div>
+                    <ChevronRight size={18} className="text-gray-300" />
+                  </button>
+                </div>
               </div>
 
-              {/* COMMENT BOX (Only shows if they selected 1, 2, or 3 stars) */}
-              {rating > 0 && rating <= 3 && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mb-6">
-                  <textarea
-                    placeholder="We're sorry it wasn't a 5-star experience. What went wrong?"
-                    value={feedbackComment}
-                    onChange={(e) => setFeedbackComment(e.target.value)}
-                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl p-4 text-sm font-medium outline-none focus:border-orange-500 focus:bg-white resize-none transition-colors"
-                    rows={3}
-                  />
-                </motion.div>
-              )}
+              {/* SUPPORT & HELP */}
+              <div className="mt-8">
+                <h4 className="text-[10px] font-black tracking-[0.2em] text-gray-400 uppercase mb-3 ml-4">Support & Help</h4>
+                <div className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                  <button onClick={() => window.open('https://wa.me/?text=Hi BowlIt Team!', '_blank')} className="w-full p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors border-b border-gray-100">
+                    <div className="text-gray-700"><HelpCircle size={20} /></div>
+                    <div className="text-left flex-grow">
+                      <div className="font-bold text-gray-900 text-[13px]">FAQs & Guide</div>
+                    </div>
+                    <ChevronRight size={18} className="text-gray-300" />
+                  </button>
+                  <button onClick={() => window.open('https://wa.me/?text=Hi BowlIt Support!', '_blank')} className="w-full p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors">
+                    <div className="text-gray-700"><MessageCircle size={20} /></div>
+                    <div className="text-left flex-grow">
+                      <div className="font-bold text-gray-900 text-[13px]">Chat with Support</div>
+                    </div>
+                    <ChevronRight size={18} className="text-gray-300" />
+                  </button>
+                </div>
+              </div>
 
-              <div className="space-y-3">
-                <button
-                  onClick={handleFeedbackSubmit}
-                  disabled={rating === 0 || submittingFeedback}
-                  className="w-full bg-black text-white font-bold py-4 rounded-xl hover:bg-gray-800 disabled:opacity-50 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-2"
-                >
-                  {submittingFeedback ? <Loader2 size={20} className="animate-spin" /> : "Submit Feedback"}
+              {/* SIGN OUT */}
+              <div className="mt-8 pb-10">
+                <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }} className="w-full bg-red-100/50 text-red-600 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-red-100 transition-colors">
+                  <LogOut size={18} /> Sign Out
                 </button>
-                <button
-                  onClick={() => setPendingFeedbackOrder(null)}
-                  className="w-full text-gray-400 font-bold py-2 text-sm hover:text-gray-600 transition-colors"
-                >
-                  Skip for now
-                </button>
+                <div className="text-center mt-6">
+                  <div className="text-[9px] font-black tracking-[0.2em] text-gray-300 uppercase">BowlIt V2.4.0 — Made With Love</div>
+                </div>
               </div>
             </motion.div>
-          </div>
-        )}
+          )}
 
-        {/* HEADER */}
-        <div>
-          <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-orange-600 mb-4 md:mb-6 transition-colors font-bold text-sm">
-            <ArrowLeft size={18} /> Back to Home
-          </Link>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">My Profile</h1>
-              <p className="text-sm md:text-base text-gray-500">Manage your subscription, meals, and preferences.</p>
-            </div>
-            <button
-              onClick={() => setIsAutoOrderActive(!isAutoOrderActive)}
-              className={`flex items-center justify-center gap-2 md:gap-3 px-4 py-3 md:px-6 md:py-3 rounded-xl md:rounded-full font-bold transition-all w-full md:w-auto text-sm md:text-base ${isAutoOrderActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+          {/* -------------------- SUB-VIEWS (ANIMATED OVERLAYS) -------------------- */}
+          {activeTab !== 'menu' && (
+            <motion.div
+              key="subview"
+              initial={{ opacity: 0, x: "100%" }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="absolute inset-0 z-40 bg-gray-50 min-h-[100dvh] w-full overflow-y-auto"
             >
-              {isAutoOrderActive ? <PlayCircle size={18} className="md:w-5 md:h-5" /> : <PauseCircle size={18} className="md:w-5 md:h-5" />}
-              {isAutoOrderActive ? "Subscription Active" : "Subscription Paused"}
-            </button>
-          </div>
-        </div>
+              {/* STICKY HEADER FOR SUB-VIEWS */}
+              <div className="flex items-center gap-4 px-5 py-4 bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
+                <button onClick={() => setActiveTab('menu')} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors text-gray-800">
+                  <ArrowLeft size={24} />
+                </button>
+                <h2 className="text-lg font-black text-gray-900">
+                  {activeTab === 'calendar' ? 'Manage Delivery' : ''}
+                  {activeTab === 'wallet' ? 'My Wallet' : ''}
+                  {activeTab === 'refer' ? 'Referral Hub' : ''}
+                  {activeTab === 'orders' ? 'Order History' : ''}
+                  {activeTab === 'addresses' ? 'Saved Addresses' : ''}
+                  {activeTab === 'settings' ? 'Personal Details' : ''}
+                </h2>
+              </div>
 
-        {/* HORIZONTAL TAB NAVIGATION */}
-        <div className="flex overflow-x-auto gap-2 pb-2 mb-2 border-b border-gray-200" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-           {tabs.map(tab => {
-             const Icon = tab.icon;
-             const isActive = activeTab === tab.id;
-             return (
-               <button
-                 key={tab.id}
-                 onClick={() => setActiveTab(tab.id)}
-                 className={`flex items-center gap-2 px-4 py-3 rounded-t-xl font-bold text-sm whitespace-nowrap transition-all border-b-2 ${
-                   isActive 
-                     ? 'bg-orange-50/50 text-orange-600 border-orange-500' 
-                     : 'text-gray-500 border-transparent hover:text-gray-900 hover:bg-gray-100/50'
-                 }`}
-               >
-                 <Icon size={18} />
-                 {tab.label}
-               </button>
-             );
-           })}
-        </div>
+              {/* SUB-VIEW CONTENTS */}
+              <div className="p-5 pb-20 space-y-6">
+                {/* 1. DELIVERY / CALENDAR */}
+                {activeTab === 'calendar' && (
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-[2rem] p-4 md:p-8 shadow-sm border border-gray-100">
+                      <div className="flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 gap-3 sm:gap-0">
+                        <h3 className="text-lg md:text-xl font-bold text-gray-900 self-start sm:self-auto">Meal Calendar</h3>
+                        <div className="flex items-center gap-2 md:gap-4 bg-gray-50 md:bg-transparent rounded-full md:rounded-none p-1 md:p-0">
+                          <button onClick={() => changeMonth(-1)} className="p-2 md:p-2 hover:bg-gray-200 md:hover:bg-gray-100 rounded-full"><ChevronLeft size={18} className="md:w-5 md:h-5" /></button>
+                          <span className="font-bold text-sm md:text-lg w-28 md:w-32 text-center">{monthNames[month]} {year}</span>
+                          <button onClick={() => changeMonth(1)} className="p-2 md:p-2 hover:bg-gray-200 md:hover:bg-gray-100 rounded-full"><ChevronRight size={18} className="md:w-5 md:h-5" /></button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 md:gap-2 text-center mb-2">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="text-[10px] md:text-xs font-bold text-gray-400 uppercase">{d}</div>)}
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 md:gap-2">
+                        {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
+                        {Array.from({ length: days }).map((_, i) => {
+                          const day = i + 1;
+                          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                          const checkDate = new Date(dateStr);
+                          const isWeekend = checkDate.getDay() === 0 || checkDate.getDay() === 6;
+                          const isPast = dateStr < todayStr;
+                          const isToday = dateStr === todayStr;
+                          const hasOrder = orders.some(o => o.created_at.startsWith(dateStr));
+                          const isPaused = pausedDates.includes(dateStr);
+                          const isScheduled = scheduledDays[dateStr];
 
-        {/* TAB CONTENTS VIEW SWITCHER */}
-        <div className="min-h-[50vh]">
-          {/* 1. DASHBOARD TAB */}
-          {activeTab === 'dashboard' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 md:space-y-8">
-              {userId && <LiveTrackingCard userId={userId} />}
-              <PlanSummaryCard activePlan={activePlan} credits={credits} balance={balance} />
-              
-              {/* REFER & EARN BANNER */}
-              <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl md:rounded-3xl p-6 md:p-8 shadow-xl text-white relative overflow-hidden">
-                <div className="absolute -right-10 -top-10 text-white/10 rotate-12">
-                  <Gift size={150} />
-                </div>
-                <div className="relative z-10">
-                  <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
-                    <Share2 size={14} /> Viral Growth
-                  </div>
-                  <h2 className="text-2xl md:text-3xl font-black mb-2">Refer a friend, get ₹{storeSettings.referral_reward_sender}!</h2>
-                  <p className="text-green-50 mb-6 max-w-sm text-sm">
-                    Tell your office mates to use your phone number as a Promo Code on their first subscription. They save ₹{storeSettings.referral_reward_receiver}, and you get ₹{storeSettings.referral_reward_sender} added directly to your BowlIt Wallet!
-                  </p>
-                  <div className="bg-white/10 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 backdrop-blur-md border border-white/20">
-                    <div>
-                      <div className="text-xs font-bold text-green-100 uppercase tracking-widest mb-1">Your Unique Code</div>
-                      <div className="text-2xl font-mono font-black tracking-widest">{formData.phone || 'NO_PHONE'}</div>
+                          let bgClass = "bg-gray-50 text-gray-400";
+                          let content = <span>{day}</span>;
+                          if (isPast) {
+                            if (hasOrder) { bgClass = "bg-green-100 text-green-700 border border-green-200"; content = <div className="flex flex-col items-center"><span>{day}</span></div>; }
+                            else { bgClass = "bg-gray-100 text-gray-400 opacity-50"; }
+                          } else {
+                            if (isWeekend) { bgClass = "bg-white text-gray-300"; }
+                            else if (isPaused) { bgClass = "bg-red-50 text-red-500 border border-red-200 cursor-pointer hover:bg-red-100"; content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[9px] font-bold mt-0.5">SKIP</span></div>; }
+                            else if (isScheduled) { bgClass = "bg-blue-50 text-blue-600 border border-blue-100 cursor-pointer hover:bg-blue-100"; const label = activePlan.includes("Lunch + Dinner") ? "2 MEALS" : "MEAL"; content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[9px] font-bold mt-0.5">{label}</span></div>; }
+                            else if (isAutoOrderActive) { bgClass = "bg-gray-100 text-gray-400 border border-gray-200 cursor-pointer hover:bg-gray-200"; content = <div className="flex flex-col items-center"><span>{day}</span></div>; }
+                          }
+                          return (
+                            <div key={day} onClick={() => !isPast && !isWeekend && togglePauseDate(day)} className={`h-12 md:h-16 rounded-xl flex items-center justify-center text-xs md:text-sm font-bold transition-all ${bgClass}`}>{content}</div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        const message = `Hey! Use my promo code *${formData.phone}* on BowlIt.in to get ₹${storeSettings.referral_reward_receiver} off your first daily meal plan! 🍛`;
-                        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-                      }}
-                      className="w-full sm:w-auto bg-white text-green-700 font-black px-6 py-3 rounded-xl hover:bg-green-50 transition-colors flex items-center justify-center gap-2 shadow-lg"
-                    >
-                      <Share2 size={18} /> Share on WhatsApp
+
+                    <button onClick={() => setIsAutoOrderActive(!isAutoOrderActive)} className={`flex items-center justify-center gap-2 md:gap-3 px-4 py-4 md:px-6 md:py-3 rounded-[1.5rem] font-bold transition-all w-full text-sm md:text-base border-2 ${isAutoOrderActive ? 'bg-white border-green-200 text-green-700 shadow-sm' : 'bg-red-50 border-transparent text-red-700'}`}>
+                      {isAutoOrderActive ? <PlayCircle size={18} className="md:w-5 md:h-5" /> : <PauseCircle size={18} className="md:w-5 md:h-5" />}
+                      {isAutoOrderActive ? "Subscription is Active" : "Subscription is Paused"}
                     </button>
                   </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
+                )}
 
-          {/* 2. CALENDAR TAB */}
-          {activeTab === 'calendar' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm border border-gray-100">
-              <div className="flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 gap-3 sm:gap-0">
-                <h3 className="text-lg md:text-xl font-bold text-gray-900 self-start sm:self-auto">Meal Calendar</h3>
-                <div className="flex items-center gap-2 md:gap-4 bg-gray-50 md:bg-transparent rounded-full md:rounded-none p-1 md:p-0">
-                  <button onClick={() => changeMonth(-1)} className="p-2 md:p-2 hover:bg-gray-200 md:hover:bg-gray-100 rounded-full"><ChevronLeft size={18} className="md:w-5 md:h-5" /></button>
-                  <span className="font-bold text-sm md:text-lg w-28 md:w-32 text-center">{monthNames[month]} {year}</span>
-                  <button onClick={() => changeMonth(1)} className="p-2 md:p-2 hover:bg-gray-200 md:hover:bg-gray-100 rounded-full"><ChevronRight size={18} className="md:w-5 md:h-5" /></button>
-                </div>
-              </div>
-    
-              <div className="flex gap-2 md:gap-4 mb-4 md:mb-6 text-[10px] md:text-xs font-bold text-gray-500 justify-start flex-wrap">
-                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500"></span> Delivered</div>
-                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Scheduled</div>
-                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400"></span> Paused</div>
-                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-gray-200"></span> No Credits</div>
-              </div>
-    
-              <div className="grid grid-cols-7 gap-1 md:gap-2 text-center mb-2">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="text-[10px] md:text-xs font-bold text-gray-400 uppercase">{d}</div>)}
-              </div>
-    
-              <div className="grid grid-cols-7 gap-1 md:gap-2">
-                {/* Empty slots */}
-                {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
-    
-                {/* Days */}
-                {Array.from({ length: days }).map((_, i) => {
-                  const day = i + 1;
-                  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                  const checkDate = new Date(dateStr);
-                  const isWeekend = checkDate.getDay() === 0 || checkDate.getDay() === 6;
-    
-                  // Status Checks
-                  const isPast = dateStr < todayStr;
-                  const isToday = dateStr === todayStr;
-                  const hasOrder = orders.some(o => o.created_at.startsWith(dateStr));
-                  const isPaused = pausedDates.includes(dateStr);
-                  const isScheduled = scheduledDays[dateStr]; // Calculated based on credits!
-    
-                  let bgClass = "bg-gray-50 text-gray-400";
-                  let content = <span>{day}</span>;
-    
-                  if (isPast) {
-                    if (hasOrder) {
-                      bgClass = "bg-green-100 text-green-700 border border-green-200";
-                      content = <div className="flex flex-col items-center"><span>{day}</span><CheckCircle size={10} className="md:w-3 md:h-3 mt-0.5" /></div>;
-                    } else {
-                      bgClass = "bg-gray-100 text-gray-400 opacity-50";
-                    }
-                  } else {
-                    // FUTURE
-                    if (isWeekend) {
-                      bgClass = "bg-white text-gray-300"; // Weekend style
-                    } else if (isPaused) {
-                      bgClass = "bg-red-50 text-red-500 border border-red-200 cursor-pointer hover:bg-red-100";
-                      content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[9px] font-bold mt-0.5">SKIP</span></div>;
-                    } else if (isScheduled) {
-                      // HAS CREDITS
-                      bgClass = "bg-blue-50 text-blue-600 border border-blue-100 cursor-pointer hover:bg-blue-100";
-                      const label = activePlan.includes("Lunch + Dinner") ? "2 MEALS" : "MEAL";
-                      content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[9px] font-bold mt-0.5">{label}</span></div>;
-                    } else if (isAutoOrderActive) {
-                      // NO CREDITS (Runway ended)
-                      bgClass = "bg-gray-100 text-gray-400 border border-gray-200 cursor-pointer hover:bg-gray-200";
-                      content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[8px] font-bold mt-0.5 leading-tight">NO<br />CREDIT</span></div>;
-                    }
-                  }
-    
-                  return (
-                    <div
-                      key={day}
-                      onClick={() => !isPast && !isWeekend && togglePauseDate(day)}
-                      className={`h-12 md:h-16 rounded-lg md:rounded-xl flex items-center justify-center text-xs md:text-sm font-bold transition-all ${bgClass}`}
-                    >
-                      {content}
+                {/* 2. WALLET */}
+                {activeTab === 'wallet' && (
+                  <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+                    <PlanSummaryCard activePlan={activePlan} credits={credits} balance={balance} />
+                  </div>
+                )}
+
+                {/* 3. REFERRAL HUB */}
+                {activeTab === 'refer' && (
+                  <div className="bg-gradient-to-br from-green-600 to-emerald-800 rounded-[2rem] p-8 shadow-xl text-white relative overflow-hidden">
+                    <div className="absolute -right-10 -top-10 text-white/10 rotate-12"><Gift size={180} /></div>
+                    <div className="relative z-10">
+                      <div className="inline-flex items-center gap-2 bg-white/20 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6"><Share2 size={14} /> Viral Growth</div>
+                      <h2 className="text-3xl font-black mb-3 leading-tight">Refer a friend, get ₹{storeSettings.referral_reward_sender}!</h2>
+                      <p className="text-green-50/90 mb-8 text-sm">Tell your office mates to use your phone number as a Promo Code. They save ₹{storeSettings.referral_reward_receiver}, and you get ₹{storeSettings.referral_reward_sender} added directly to your Walllet!</p>
+                      <div className="bg-white/10 rounded-2xl p-5 flex flex-col items-center justify-between gap-4 backdrop-blur-md border border-white/20 text-center">
+                        <div>
+                          <div className="text-[11px] font-bold text-green-100/80 uppercase tracking-widest mb-1.5">Your VIP Promo Code</div>
+                          <div className="text-3xl font-mono font-black tracking-widest text-[#fde047]">{formData.phone || 'NO_PHONE'}</div>
+                        </div>
+                        <button onClick={() => { const message = `Hey! Use my code *${formData.phone}* on BowlIt.in to get ₹${storeSettings.referral_reward_receiver} off your first meal! 🍛`; window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank'); }} className="w-full bg-white text-green-800 font-black px-6 py-4 rounded-xl hover:scale-105 transition-all flex items-center justify-center gap-2 shadow-lg mt-3">
+                          <Share2 size={18} /> Send to WhatsApp
+                        </button>
+                      </div>
                     </div>
-                  );
-                })}
+                  </div>
+                )}
+
+                {/* 4. ORDERS */}
+                {activeTab === 'orders' && (
+                  <div className="space-y-4">
+                    {orders.length === 0 ? (
+                      <div className="text-center py-12 bg-white rounded-[2rem] shadow-sm border border-gray-100 text-gray-400 font-medium">No past deliveries found.</div>
+                    ) : (
+                      orders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(order => (
+                        <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-[1.5rem] bg-white border border-gray-100/80 hover:border-gray-300 transition-all gap-4 shadow-sm">
+                          <div className="flex items-center gap-4">
+                            <div className={`p-4 rounded-2xl flex items-center justify-center ${order.status === 'Completed' ? 'bg-green-50 text-green-600' : order.status === 'Cancelled' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
+                              <ShoppingBag size={24} />
+                            </div>
+                            <div>
+                              <div className="font-black text-gray-900 text-lg mb-0.5">Order #{order.id}</div>
+                              <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{new Date(order.created_at).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                            </div>
+                          </div>
+                          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center w-full sm:w-auto mt-1 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-dashed border-gray-100">
+                            <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${order.status === 'Completed' ? 'text-green-700 bg-green-100/50' : order.status === 'Cancelled' ? 'text-red-700 bg-red-100/50' : 'text-orange-700 bg-orange-100/50'}`}>
+                              {order.status}
+                            </span>
+                            <span className="font-black text-gray-900 text-xl sm:mt-3">₹{parseFloat(order.total_amount).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* 5. ADDRESSES */}
+                {activeTab === 'addresses' && (
+                  <div className="bg-white rounded-[2rem] p-4 shadow-sm border border-gray-100 overflow-hidden">
+                    <AddressManager userId={userId} />
+                  </div>
+                )}
+
+                {/* 6. SETTINGS */}
+                {activeTab === 'settings' && (
+                  <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
+                    <PersonalDetailsForm formData={formData} setFormData={setFormData} handleUpdateProfile={handleUpdateProfile} saving={saving} />
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
 
-          {/* 3. ORDER HISTORY TAB */}
-          {activeTab === 'orders' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl md:rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100">
-               <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-6">Order History</h3>
-               {orders.length === 0 ? (
-                 <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-gray-400 font-medium">No orders completely mapped yet.</div>
-               ) : (
-                 <div className="space-y-4">
-                   {orders.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(order => (
-                     <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 md:p-6 rounded-2xl border border-gray-100 hover:border-gray-300 hover:shadow-md transition-all gap-4">
-                       <div className="flex items-center gap-4">
-                         <div className={`p-4 rounded-full flex items-center justify-center ${order.status === 'Completed' ? 'bg-green-50 text-green-600' : order.status === 'Cancelled' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
-                           <ShoppingBag size={24} />
-                         </div>
-                         <div>
-                            <div className="font-black text-gray-900 text-lg mb-1">Order #{order.id}</div>
-                            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">{new Date(order.created_at).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                         </div>
-                       </div>
-                       <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-gray-100">
-                          <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest ${order.status === 'Completed' ? 'bg-green-100 text-green-700' : order.status === 'Cancelled' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
-                            {order.status}
-                          </span>
-                          <span className="font-black text-gray-900 text-xl sm:mt-3">₹{parseFloat(order.total_amount).toFixed(2)}</span>
-                       </div>
-                     </div>
-                   ))}
-                 </div>
-               )}
-            </motion.div>
-          )}
-
-          {/* 4. ADDRESSES TAB */}
-          {activeTab === 'addresses' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-               <AddressManager userId={userId} />
-            </motion.div>
-          )}
-
-          {/* 5. SETTINGS TAB */}
-          {activeTab === 'settings' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-               <PersonalDetailsForm formData={formData} setFormData={setFormData} handleUpdateProfile={handleUpdateProfile} saving={saving} />
-            </motion.div>
-          )}
-        </div>
+        </AnimatePresence>
       </div>
+
     </main>
   );
 }

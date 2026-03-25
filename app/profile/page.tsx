@@ -125,7 +125,7 @@ export default function ProfilePage() {
     };
 
     fetchData();
-  }, [router]);
+  }, []);
 
   // --- CALENDAR HELPERS ---
   const getDaysInMonth = (date: Date) => {

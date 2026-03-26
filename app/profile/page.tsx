@@ -36,6 +36,14 @@ export default function ProfilePage() {
   // Tab State
   const [activeTab, setActiveTab] = useState("menu");
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const qs = new URLSearchParams(window.location.search);
+      const tabUrl = qs.get("tab");
+      if (tabUrl) setActiveTab(tabUrl);
+    }
+  }, []);
+
   // NEW: NPS Feedback State
   const [pendingFeedbackOrder, setPendingFeedbackOrder] = useState<any>(null);
   const [hoveredStar, setHoveredStar] = useState(0);

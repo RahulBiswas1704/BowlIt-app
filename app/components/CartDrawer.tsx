@@ -317,7 +317,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                               </div>
                             </div>
                           ))}
-                          <Link href="/profile" onClick={onClose} className="block w-full p-3 rounded-xl border-2 border-dashed border-gray-200 text-center text-sm font-bold text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors">
+                          <Link href="/profile?tab=addresses" onClick={onClose} className="block w-full p-3 rounded-xl border-2 border-dashed border-gray-200 text-center text-sm font-bold text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors">
                             + Manage Addresses
                           </Link>
                         </div>
@@ -326,7 +326,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                           <MapPin className="mx-auto text-orange-400 mb-2" size={24} />
                           <p className="text-sm font-bold text-orange-800 mb-1">No Delivery Address</p>
                           <p className="text-xs text-orange-600 mb-3">Please set your delivery location to ensure we serve your area.</p>
-                          <Link href="/profile" onClick={onClose} className="block w-full bg-orange-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-orange-700 transition">
+                          <Link href="/profile?tab=addresses" onClick={onClose} className="block w-full bg-orange-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-orange-700 transition">
                             Set Delivery Address
                           </Link>
                         </div>
